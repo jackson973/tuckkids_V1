@@ -1,0 +1,126 @@
+/* ============================================================
+   Tuck Kids — Landing page (convertida do Claude Design)
+   Paleta: navy #101B4D · cream #FBF7EF · teal #4F9993
+           coral #FF6655 · yellow #FFB52E · lilac #7778B7
+   ============================================================ */
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: #FBF7EF;
+  color: #101B4D;
+  font-family: 'Nunito Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a { color: #4F9993; text-decoration: none; }
+a:hover { color: #FF6655; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@keyframes floaty2 { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-14px) rotate(3deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ---------- visibilidade desktop / mobile (breakpoint 920px) ---------- */
+.mobile-only { display: none !important; }
+@media (max-width: 920px) {
+  .desktop-only { display: none !important; }
+  .mobile-only { display: flex !important; }
+}
+#mobile-menu { display: none; }
+#mobile-menu.open { display: flex; }
+@media (min-width: 921px) { #mobile-menu.open { display: none; } }
+
+/* ---------- ícones (Lucide via mask) ---------- */
+.icn {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  background: #101B4D;
+  -webkit-mask: var(--icn) center / contain no-repeat;
+  mask: var(--icn) center / contain no-repeat;
+}
+.icn-check { --icn: url("../assets/icons/check.svg"); }
+.icn-package { --icn: url("../assets/icons/package.svg"); }
+.icn-trending-up { --icn: url("../assets/icons/trending-up.svg"); }
+.icn-tag { --icn: url("../assets/icons/tag.svg"); }
+.icn-truck { --icn: url("../assets/icons/truck.svg"); }
+.icn-headphones { --icn: url("../assets/icons/headphones.svg"); }
+.icn-video { --icn: url("../assets/icons/video.svg"); }
+.icn-mic { --icn: url("../assets/icons/mic.svg"); }
+.icn-phone { --icn: url("../assets/icons/phone.svg"); }
+.icn-message-circle { --icn: url("../assets/icons/message-circle.svg"); }
+.icn-instagram { --icn: url("../assets/icons/instagram.svg"); }
+.icn-facebook { --icn: url("../assets/icons/facebook.svg"); }
+
+/* ---------- imagens e placeholders dos slots ---------- */
+.img-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
+.img-contain { width: 100%; height: 100%; object-fit: contain; display: block; }
+.ph {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 18px;
+  background: repeating-linear-gradient(45deg, #F1EBDF, #F1EBDF 14px, #EDE5D5 14px, #EDE5D5 28px);
+  color: rgba(16, 27, 77, .45);
+  font-weight: 700;
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+.ph--dark {
+  background: repeating-linear-gradient(45deg, #1a2760, #1a2760 14px, #212e6e 14px, #212e6e 28px);
+  color: rgba(251, 247, 239, .55);
+}
+
+/* ---------- estados hover (extraídos de style-hover do design) ---------- */
+.hov-coral:hover { background: #e9503f !important; color: #fff !important; }
+.hov-lift:hover { transform: translateY(-2px); }
+.hov-coral.hov-lift:hover { background: #e9503f !important; color: #fff !important; transform: translateY(-2px); }
+.hov-outline:hover { border-color: #101B4D !important; color: #101B4D !important; }
+.hov-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(16, 27, 77, .1); }
+.hov-up:hover { transform: translateY(-4px); }
+.hov-navy-coral:hover { background: #FF6655 !important; color: #fff !important; }
+.hov-teal:hover { background: #3d7a75 !important; color: #fff !important; }
+.hov-cream-yellow:hover { background: #FFB52E !important; color: #101B4D !important; }
+.hov-scale:hover { transform: scale(1.015); }
+.hov-soc:hover { background: #FF6655 !important; }
+.hov-float:hover { transform: scale(1.08); }
+.vsl-play:hover { transform: translate(-50%, -50%) scale(1.08); }
+
+/* ---------- seção "Como comprar" ---------- */
+.steps-grid { grid-template-columns: repeat(4, 1fr); }
+.step-line { display: block; }
+@media (max-width: 920px) {
+  .steps-grid { grid-template-columns: 1fr; }
+  .step-line { display: none; }
+}
+
+/* ---------- condições comerciais: card frete ocupa 2 colunas ---------- */
+.frete-card { grid-column: span 2; }
+@media (max-width: 920px) { .frete-card { grid-column: span 1; } }
+
+/* ---------- FAQ (acordeão) ---------- */
+.faq-a {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height .45s cubic-bezier(.4, 0, .2, 1), opacity .3s;
+}
+.faq-item.open .faq-a { max-height: 300px; opacity: 1; }
+.faq-sym {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-size: 22px;
+  color: #4F9993;
+  line-height: 1;
+  transition: transform .3s;
+  flex-shrink: 0;
+}
+.faq-item.open .faq-sym { transform: rotate(45deg); }

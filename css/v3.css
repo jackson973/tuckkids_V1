@@ -1,0 +1,103 @@
+/* ============================================================
+   Tuck Kids — Landing V3 (estilo corporativo / performance B2B)
+   Fonte: Manrope · Fundo branco, hero navy, tom direto de negócio
+   ============================================================ */
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: #fff;
+  color: #101B4D;
+  font-family: 'Manrope', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: #4F9993; text-decoration: none; }
+a:hover { color: #FF6655; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ---------- visibilidade desktop / mobile (breakpoint 920px) ---------- */
+.mobile-only { display: none !important; }
+@media (max-width: 920px) {
+  .desktop-only { display: none !important; }
+  .mobile-only { display: flex !important; }
+}
+#mobile-menu { display: none; }
+#mobile-menu.open { display: flex; }
+@media (min-width: 921px) { #mobile-menu.open { display: none; } }
+
+/* ---------- ícones (Lucide via mask) ---------- */
+.icn {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  background: #101B4D;
+  flex-shrink: 0;
+  -webkit-mask: var(--icn) center / contain no-repeat;
+  mask: var(--icn) center / contain no-repeat;
+}
+.icn-check { --icn: url("../assets/icons/check.svg"); }
+.icn-package { --icn: url("../assets/icons/package.svg"); }
+.icn-trending-up { --icn: url("../assets/icons/trending-up.svg"); }
+.icn-tag { --icn: url("../assets/icons/tag.svg"); }
+.icn-truck { --icn: url("../assets/icons/truck.svg"); }
+.icn-headphones { --icn: url("../assets/icons/headphones.svg"); }
+.icn-video { --icn: url("../assets/icons/video.svg"); }
+.icn-shield-check { --icn: url("../assets/icons/shield-check.svg"); }
+.icn-mic { --icn: url("../assets/icons/mic.svg"); }
+.icn-phone { --icn: url("../assets/icons/phone.svg"); }
+.icn-message-circle { --icn: url("../assets/icons/message-circle.svg"); }
+.icn-instagram { --icn: url("../assets/icons/instagram.svg"); }
+.icn-facebook { --icn: url("../assets/icons/facebook.svg"); }
+
+/* ---------- imagens ---------- */
+.img-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
+.img-contain { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* ---------- hovers (do design V3: sóbrios) ---------- */
+.hov-coral:hover { background: #e9503f !important; color: #fff !important; }
+.hov-coral-lift:hover { background: #e9503f !important; color: #fff !important; transform: translateY(-2px); }
+.hov-outline-w:hover { border-color: #fff !important; color: #fff !important; }
+.hov-bene-v3:hover { background: #FBF9F4 !important; }
+.hov-cat-v3:hover { transform: translateY(-4px); box-shadow: 0 14px 34px rgba(16, 27, 77, .12); }
+.hov-navy-coral:hover { background: #FF6655 !important; color: #fff !important; }
+.hov-teal:hover { background: #3d7a75 !important; color: #fff !important; }
+.hov-soc:hover { background: #FF6655 !important; }
+.hov-float-v3:hover { transform: scale(1.07); }
+.vsl-play-v3:hover { transform: translate(-50%, -50%) scale(1.07); }
+
+/* ---------- seção "Como comprar" ---------- */
+.steps-grid { grid-template-columns: repeat(4, 1fr); }
+.step-line { display: block; }
+@media (max-width: 920px) {
+  .steps-grid { grid-template-columns: 1fr; }
+  .step-line { display: none; }
+}
+
+/* ---------- condições: card frete ocupa 2 colunas ---------- */
+.frete-card { grid-column: span 2; }
+@media (max-width: 920px) { .frete-card { grid-column: span 1; } }
+
+/* ---------- FAQ (acordeão) ---------- */
+.faq-a {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height .45s cubic-bezier(.4, 0, .2, 1), opacity .3s;
+}
+.faq-item.open .faq-a { max-height: 300px; opacity: 1; }
+.faq-sym {
+  font-weight: 800;
+  font-size: 21px;
+  color: #FF6655;
+  line-height: 1;
+  transition: transform .3s;
+  flex-shrink: 0;
+}
+.faq-item.open .faq-sym { transform: rotate(45deg); }

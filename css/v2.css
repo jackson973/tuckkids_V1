@@ -1,0 +1,109 @@
+/* ============================================================
+   Tuck Kids — Landing V2 (estilo lúdico / sticker)
+   Fontes: Baloo 2 (títulos) + Nunito Sans (texto)
+   Marca do estilo: bordas navy grossas, sombras "duras",
+   cartões levemente rotacionados, emojis.
+   ============================================================ */
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: #FBF7EF;
+  color: #101B4D;
+  font-family: 'Nunito Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: #4F9993; text-decoration: none; }
+a:hover { color: #FF6655; }
+
+@keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes floaty2 { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-16px) rotate(5deg); } }
+@keyframes wiggle { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ---------- visibilidade desktop / mobile (breakpoint 920px) ---------- */
+.mobile-only { display: none !important; }
+@media (max-width: 920px) {
+  .desktop-only { display: none !important; }
+  .mobile-only { display: flex !important; }
+}
+#mobile-menu { display: none; }
+#mobile-menu.open { display: flex; }
+@media (min-width: 921px) { #mobile-menu.open { display: none; } }
+
+/* ---------- ícones (Lucide via mask) ---------- */
+.icn {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  background: #101B4D;
+  -webkit-mask: var(--icn) center / contain no-repeat;
+  mask: var(--icn) center / contain no-repeat;
+}
+.icn-check { --icn: url("../assets/icons/check.svg"); }
+.icn-package { --icn: url("../assets/icons/package.svg"); }
+.icn-trending-up { --icn: url("../assets/icons/trending-up.svg"); }
+.icn-tag { --icn: url("../assets/icons/tag.svg"); }
+.icn-truck { --icn: url("../assets/icons/truck.svg"); }
+.icn-headphones { --icn: url("../assets/icons/headphones.svg"); }
+.icn-video { --icn: url("../assets/icons/video.svg"); }
+.icn-mic { --icn: url("../assets/icons/mic.svg"); }
+.icn-phone { --icn: url("../assets/icons/phone.svg"); }
+.icn-message-circle { --icn: url("../assets/icons/message-circle.svg"); }
+.icn-instagram { --icn: url("../assets/icons/instagram.svg"); }
+.icn-facebook { --icn: url("../assets/icons/facebook.svg"); }
+
+/* ---------- imagens ---------- */
+.img-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
+.img-contain { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* ---------- hovers (do design V2: botão "afunda" na sombra dura) ---------- */
+.press:hover { transform: translateY(4px) !important; box-shadow: 0 2px 0 #101B4D !important; }
+.press-sm:hover { transform: translateY(3px) !important; box-shadow: 0 2px 0 #101B4D !important; }
+.press-lg:hover { transform: translateY(5px) !important; box-shadow: 0 3px 0 #101B4D !important; }
+.press-cream:hover { transform: translateY(3px) !important; }
+.hov-card-v2:hover { transform: rotate(0deg) translateY(-4px) scale(1.02) !important; }
+.hov-cat-v2:hover { transform: rotate(0deg) translateY(-5px) !important; }
+.hov-navy-coral:hover { background: #FF6655 !important; color: #fff !important; }
+.hov-gal-v2:hover { transform: scale(1.02) rotate(-.5deg); }
+.hov-soc:hover { background: #FF6655 !important; }
+.hov-float-v2:hover { transform: scale(1.1) rotate(8deg); }
+.vsl-play-v2:hover { transform: translate(-50%, -50%) scale(1.1) rotate(6deg); }
+.hov-navy-sobre:hover { background: #FF6655 !important; color: #fff !important; transform: translateY(3px); }
+
+/* ---------- seção "Como comprar" ---------- */
+.steps-grid { grid-template-columns: repeat(4, 1fr); }
+.step-line { display: block; }
+@media (max-width: 920px) {
+  .steps-grid { grid-template-columns: 1fr; }
+  .step-line { display: none; }
+}
+
+/* ---------- condições: card frete ocupa 2 colunas ---------- */
+.frete-card { grid-column: span 2; }
+@media (max-width: 920px) { .frete-card { grid-column: span 1; } }
+
+/* ---------- FAQ (acordeão) ---------- */
+.faq-a {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height .45s cubic-bezier(.4, 0, .2, 1), opacity .3s;
+}
+.faq-item.open .faq-a { max-height: 300px; opacity: 1; }
+.faq-sym {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  color: #FF6655;
+  line-height: 1;
+  transition: transform .3s;
+  flex-shrink: 0;
+}
+.faq-item.open .faq-sym { transform: rotate(45deg); }
