@@ -2,3 +2,9 @@
 Site Tuck Kids V1.zip
 .DS_Store
 node_modules/
+# Runtime do backend — conteúdo editado, uploads e credenciais
+data/content.json
+data/uploads/
+data/admin.json
+data/secret.key
+.env

@@ -1,13 +1,15 @@
 /* ============================================================
    Tuck Kids — Landing page
    Configuração + interações (menu, FAQ, contadores, WhatsApp)
+   Com servidor: window.__TK (injetado) sobrescreve a configuração.
+   Sem servidor (GitHub Pages): usa os valores padrão abaixo.
    ============================================================ */
 
 // TODO: substituir pelo número oficial de WhatsApp da Tuck Kids (formato: 55 + DDD + número)
-const TK_CONFIG = {
+const TK_CONFIG = Object.assign({
   whatsappNumber: '5547999999999',
   pedidoMinimo: 'R$ 2.000',
-};
+}, (window.__TK && window.__TK.config) || {});
 
 // Uma página pode sobrescrever mensagens definindo window.TK_MSG_OVERRIDES antes deste script
 const WA_MESSAGES = Object.assign({
@@ -24,16 +26,25 @@ function waLink(messageKey) {
   return 'https://wa.me/' + num + '?text=' + encodeURIComponent(msg);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  // Links de WhatsApp — todo <a data-wa="chave">
+// Preenche links de WhatsApp, pedido mínimo e redes sociais.
+// Idempotente: o cms.js chama de novo após aplicar overrides de texto.
+window.__TK_applyConfig = function applyConfig() {
   document.querySelectorAll('[data-wa]').forEach((el) => {
     el.setAttribute('href', waLink(el.dataset.wa));
   });
-
-  // Pedido mínimo — todo <span data-cfg="pedidoMinimo">
   document.querySelectorAll('[data-cfg="pedidoMinimo"]').forEach((el) => {
     el.textContent = TK_CONFIG.pedidoMinimo;
   });
+  document.querySelectorAll('a[aria-label="Instagram"]').forEach((el) => {
+    if (TK_CONFIG.instagram) el.setAttribute('href', TK_CONFIG.instagram);
+  });
+  document.querySelectorAll('a[aria-label="Facebook"]').forEach((el) => {
+    if (TK_CONFIG.facebook) el.setAttribute('href', TK_CONFIG.facebook);
+  });
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  window.__TK_applyConfig();
 
   // Botão de play do vídeo (VSL) — abre conversa no WhatsApp
   const vslPlay = document.getElementById('vsl-play');

@@ -1,0 +1,24 @@
+{
+  "config": {
+    "layoutAtivo": "v1",
+    "whatsappNumber": "5547999999999",
+    "pedidoMinimo": "R$ 2.000",
+    "instagram": "",
+    "facebook": ""
+  },
+  "tracking": {
+    "ga4Id": "",
+    "gtmId": "",
+    "metaPixelId": "",
+    "tiktokPixelId": "",
+    "googleSiteVerification": "",
+    "facebookDomainVerification": "",
+    "ogImage": ""
+  },
+  "textos": {
+    "v1": {},
+    "v2": {},
+    "v3": {}
+  },
+  "imagens": {}
+}

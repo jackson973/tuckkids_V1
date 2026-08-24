@@ -16,12 +16,33 @@ Landing pages da **Tuck Kids** (moda infantil no atacado, direto de fábrica —
 
 ## Como rodar
 
-É um site 100% estático (fontes e ícones locais, funciona offline):
+**Com o painel de edição (backend Node.js):**
+
+```bash
+npm install
+ADMIN_PASSWORD=sua-senha npm start
+# site:  http://localhost:3000  (a raiz serve o layout ativo escolhido no painel)
+# admin: http://localhost:3000/admin
+```
+
+Ou com Docker: `docker build -t tuckkids . && docker run -p 3000:3000 -v tuckkids-data:/app/data -e ADMIN_PASSWORD=sua-senha tuckkids`
+
+**Só o site estático** (sem painel — é o que o GitHub Pages serve):
 
 ```bash
 python3 -m http.server 8000
 # abra http://localhost:8000
 ```
+
+## Painel de edição (backend)
+
+- **Login**: `/admin` — senha única de admin (bcrypt; definida por `ADMIN_PASSWORD` no primeiro boot; para trocar, apague `data/admin.json` e reinicie). Sessão em cookie httpOnly assinado, rate-limit de 5 tentativas/15min.
+- **Edição inline**: autenticado, a própria página vira editor — clique num texto para editar, numa imagem para trocar (upload). "Salvar" persiste tudo.
+- **Compatível com os 3 layouts**: textos são salvos por versão (v1/v2/v3); imagens e configurações são globais. O campo "Layout ativo" define qual versão a raiz `/` serve.
+- **Rastreamento configurável pelo painel** (injetado server-side no `<head>`): Meta Pixel, Google Analytics 4, Google Tag Manager, TikTok Pixel, verificação do Google Search Console e do Meta (domain verification), `og:image`. Cliques em botões de WhatsApp disparam eventos de conversão (GA4 `whatsapp_click`/`generate_lead`, Pixel `Contact`).
+- **SEO**: `/sitemap.xml` e `/robots.txt` gerados dinamicamente.
+- **Armazenamento sem banco**: `data/content.json` (gravação atômica) + `data/uploads/` para imagens — suficiente para 1 admin e baixo volume; monte `data/` como volume persistente no deploy. Se um dia precisar de leads/pedidos, o caminho é SQLite → Postgres.
+- As chaves de override de texto são baseadas na posição do elemento no DOM: **se a estrutura HTML de um layout mudar, os textos editados daquele layout podem precisar ser re-editados**.
 
 ## Estrutura
 
