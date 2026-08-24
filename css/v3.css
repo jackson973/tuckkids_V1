@@ -71,6 +71,7 @@ a:hover { color: #FF6655; }
 .hov-soc:hover { background: #FF6655 !important; }
 .hov-float-v3:hover { transform: scale(1.07); }
 .vsl-play-v3:hover { transform: translate(-50%, -50%) scale(1.07); }
+div:hover > .gal-hint-v3 { background: #FF6655 !important; }
 
 /* ---------- seção "Como comprar" ---------- */
 .steps-grid { grid-template-columns: repeat(4, 1fr); }
