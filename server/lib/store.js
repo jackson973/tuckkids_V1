@@ -19,8 +19,12 @@ function getSecret() {
   }
   if (fs.existsSync(SECRET_FILE)) return fs.readFileSync(SECRET_FILE, 'utf8');
   const secret = crypto.randomBytes(32).toString('hex');
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(SECRET_FILE, secret, { mode: 0o600 });
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(SECRET_FILE, secret, { mode: 0o600 });
+  } catch {
+    console.warn('[store] disco somente-leitura e sem SESSION_SECRET — usando segredo temporário (defina SESSION_SECRET!)');
+  }
   return secret;
 }
 const SECRET = getSecret();

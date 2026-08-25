@@ -101,16 +101,12 @@
         #tk-launch { position: fixed; inset: 0; z-index: 2147483000; background: #FBF7EF; display: grid;
           place-items: center; text-align: center; font-family: 'Nunito Sans', -apple-system, sans-serif; }
         #tk-launch .tk-l-dot { position: absolute; border-radius: 50%; animation: tkfloat 7s ease-in-out infinite; }
-        #tk-launch h1 { font-family: 'Poppins', 'Baloo 2', sans-serif; font-weight: 700; color: #101B4D;
-          font-size: clamp(44px, 9vw, 96px); margin: 0 0 10px; letter-spacing: -.02em; user-select: none; }
-        #tk-launch h1 span { color: #4F9993; }
-        #tk-launch .tk-l-letra { cursor: default; transition: transform .15s; display: inline-block; }
-        #tk-launch .tk-l-letra:active { transform: scale(.92); }
-        #tk-launch p { margin: 0; font-size: clamp(16px, 2.6vw, 22px); font-weight: 700; color: rgba(16,27,77,.6); }
+        #tk-launch .tk-l-letra { cursor: default; }
+        #tk-launch p { margin: 0; font-size: clamp(16px, 2.6vw, 22px); font-weight: 700; color: #6d7894; letter-spacing: .01em; }
         #tk-launch .tk-l-brev { margin-top: 34px; display: inline-flex; align-items: center; gap: 9px;
           background: #fff; border: 1.5px solid rgba(16,27,77,.1); border-radius: 999px; padding: 10px 22px;
-          font-size: 13.5px; font-weight: 800; color: #4F9993; letter-spacing: .08em; text-transform: uppercase; }
-        #tk-launch .tk-l-brev i { width: 9px; height: 9px; border-radius: 50%; background: #FF6655;
+          font-size: 13.5px; font-weight: 800; color: #7d9a8d; letter-spacing: .08em; text-transform: uppercase; }
+        #tk-launch .tk-l-brev i { width: 9px; height: 9px; border-radius: 50%; background: #e0a291;
           animation: tkfloat 2s ease-in-out infinite; }
         #tk-launch form { margin-top: 26px; display: none; gap: 10px; justify-content: center; }
         #tk-launch form.aberta { display: flex; }
@@ -123,12 +119,18 @@
         @keyframes tkfloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
         @keyframes tkshake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
       </style>
-      <div class="tk-l-dot" style="top:12%;left:8%;width:120px;height:120px;background:#9BCBC5;opacity:.35"></div>
-      <div class="tk-l-dot" style="bottom:14%;right:10%;width:170px;height:170px;background:#F6C9B7;opacity:.4;animation-delay:1.2s"></div>
-      <div class="tk-l-dot" style="top:22%;right:18%;width:22px;height:22px;background:#FFB52E;animation-delay:.6s"></div>
-      <div class="tk-l-dot" style="bottom:26%;left:16%;width:15px;height:15px;background:#7778B7;animation-delay:2s"></div>
+      <div class="tk-l-dot" style="top:12%;left:8%;width:120px;height:120px;background:#a9c3b8;opacity:.35"></div>
+      <div class="tk-l-dot" style="bottom:14%;right:10%;width:170px;height:170px;background:#e0a291;opacity:.32;animation-delay:1.2s"></div>
+      <div class="tk-l-dot" style="top:22%;right:18%;width:20px;height:20px;background:#a9b2c9;animation-delay:.6s"></div>
+      <div class="tk-l-dot" style="bottom:26%;left:16%;width:14px;height:14px;background:#e0a291;animation-delay:2s"></div>
+      <div class="tk-l-dot" style="top:38%;left:22%;width:10px;height:10px;background:#3f3f3f;opacity:.5;animation-delay:1.6s"></div>
       <div style="position:relative;padding:20px">
-        <h1><span class="tk-l-letra" data-eg="T">T</span>uck <span><span class="tk-l-letra" data-eg="K">K</span>ids</span></h1>
+        <div style="position:relative;display:inline-block;margin-bottom:6px">
+          <img src="assets/img/tuck-logo.jpg" alt="Tuck Kids" draggable="false"
+            style="height:clamp(190px,34vw,320px);width:auto;mix-blend-mode:multiply;user-select:none">
+          <span class="tk-l-letra" data-eg="T" style="position:absolute;left:0;top:0;width:34%;height:100%"></span>
+          <span class="tk-l-letra" data-eg="K" style="position:absolute;right:0;top:0;width:28%;height:76%"></span>
+        </div>
         <p>Vestindo infâncias, criando memórias.</p>
         <div class="tk-l-brev"><i></i>Em breve no ar</div>
         <form autocomplete="off">
