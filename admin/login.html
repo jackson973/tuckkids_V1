@@ -31,8 +31,9 @@ button:disabled { opacity: .5; }
 <form class="card" id="f">
 <img src="/assets/img/tuck-logo.jpg" alt="Tuck Kids">
 <h1>Painel de edição</h1>
-<p>Entre para editar o site diretamente na página.</p>
-<input type="password" id="senha" placeholder="Senha de administrador" autocomplete="current-password" autofocus required>
+<p>Entre para editar o site diretamente na página.<br>Suas ações ficam registradas no histórico.</p>
+<input type="text" id="login" placeholder="Usuário" autocomplete="username" autofocus required>
+<input type="password" id="senha" placeholder="Senha" autocomplete="current-password" required>
 <button type="submit" id="btn">Entrar</button>
 <div class="err" id="err"></div>
 <a class="back" href="/">← voltar para o site</a>
@@ -46,11 +47,11 @@ document.getElementById('f').addEventListener('submit', async (e) => {
     const r = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: document.getElementById('senha').value }),
+      body: JSON.stringify({ login: document.getElementById('login').value, password: document.getElementById('senha').value }),
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || 'erro');
-    location.href = '/';
+    location.href = '/painel';
   } catch (ex) {
     err.textContent = ex.message;
     btn.disabled = false;

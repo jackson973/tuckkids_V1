@@ -52,10 +52,11 @@ function trackingTags(tracking) {
   return parts.join('\n');
 }
 
-function inject(html, { content, layout, authed }) {
+function inject(html, { content, layout, authed, user }) {
   const boot = {
     layout,
     authed: !!authed,
+    user: user ? { nome: user.nome, role: user.role } : undefined,
     config: content.config,
     textos: (content.textos && content.textos[layout]) || {},
     imagens: content.imagens || {},

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node scripts/build-static.js",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/server.js": {
+      "includeFiles": "{v1.html,v2.html,v3.html,admin/**,js/editor.js,js/cms.js,data/content.defaults.json}"
+    }
+  },
+  "rewrites": [
+    { "source": "/admin", "destination": "/api/server" },
+    { "source": "/painel", "destination": "/api/server" },
+    { "source": "/painel/:rest*", "destination": "/api/server" },
+    { "source": "/api/:rest*", "destination": "/api/server" }
+  ]
+}

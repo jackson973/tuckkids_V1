@@ -1,53 +1,107 @@
-// Autenticação de admin único: senha com bcrypt + cookie de sessão assinado (HMAC).
-// Sem dependência de session store: o cookie carrega expiração + assinatura.
-const fs = require('fs');
-const path = require('path');
+// Autenticação multiusuário (admin | editor) para o painel.
+// Usuários ficam no store como JSON privado (criptografado no Blob).
+// Sessão: cookie httpOnly assinado (HMAC) carregando o id do usuário.
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const ADMIN_FILE = path.join(DATA_DIR, 'admin.json');
-const SECRET_FILE = path.join(DATA_DIR, 'secret.key');
+const store = require('./store');
 
 const SESSION_DAYS = 7;
 const COOKIE_NAME = 'tk_session';
+const ROLES = ['admin', 'editor'];
 
-// Segredo de assinatura: env > arquivo persistido > gerado no primeiro boot
-function getSecret() {
-  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
-  if (fs.existsSync(SECRET_FILE)) return fs.readFileSync(SECRET_FILE, 'utf8');
-  const secret = crypto.randomBytes(32).toString('hex');
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(SECRET_FILE, secret, { mode: 0o600 });
-  return secret;
-}
-const SECRET = getSecret();
-
-// Hash da senha do admin: criado no primeiro boot a partir de ADMIN_PASSWORD
-// (ou senha inicial padrão, com aviso). Trocável apagando data/admin.json.
-function ensureAdmin() {
-  if (fs.existsSync(ADMIN_FILE)) return;
+// ---------- usuários ----------
+async function getUsers() {
+  const data = await store.getJSON('users', null, { privado: true });
+  if (data && Array.isArray(data.users) && data.users.length) return data.users;
+  // bootstrap: primeiro admin a partir de ADMIN_PASSWORD
   const initial = process.env.ADMIN_PASSWORD || 'tuckkids2026';
   if (!process.env.ADMIN_PASSWORD) {
-    console.warn('[auth] ADMIN_PASSWORD não definida — usando senha inicial "tuckkids2026". TROQUE em produção (defina ADMIN_PASSWORD e apague data/admin.json).');
+    console.warn('[auth] ADMIN_PASSWORD não definida — admin inicial com senha "tuckkids2026". TROQUE em produção.');
   }
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(ADMIN_FILE, JSON.stringify({ hash: bcrypt.hashSync(initial, 10) }), { mode: 0o600 });
+  const users = [{
+    id: 'u_' + crypto.randomBytes(4).toString('hex'),
+    login: 'admin',
+    nome: 'Administrador',
+    hash: bcrypt.hashSync(initial, 10),
+    role: 'admin',
+    ativo: true,
+    criadoEm: new Date().toISOString(),
+  }];
+  await store.setJSON('users', { users }, { privado: true });
+  return users;
 }
-ensureAdmin();
 
-function checkPassword(password) {
-  const { hash } = JSON.parse(fs.readFileSync(ADMIN_FILE, 'utf8'));
-  return bcrypt.compareSync(String(password || ''), hash);
+async function saveUsers(users) {
+  await store.setJSON('users', { users }, { privado: true });
 }
 
+function publicUser(u) {
+  return { id: u.id, login: u.login, nome: u.nome, role: u.role, ativo: u.ativo, criadoEm: u.criadoEm };
+}
+
+async function checkLogin(login, password) {
+  const users = await getUsers();
+  const user = users.find((u) => u.login === String(login || '').toLowerCase().trim() && u.ativo);
+  if (!user) { bcrypt.compareSync('x', '$2a$10$abcdefghijklmnopqrstuv'); return null; } // tempo constante
+  return bcrypt.compareSync(String(password || ''), user.hash) ? user : null;
+}
+
+async function createUser({ login, nome, senha, role }) {
+  const users = await getUsers();
+  login = String(login || '').toLowerCase().trim();
+  if (!/^[a-z0-9._-]{3,40}$/.test(login)) throw new Error('login inválido (3-40 caracteres, letras/números/._-)');
+  if (users.some((u) => u.login === login)) throw new Error('já existe usuário com esse login');
+  if (!senha || String(senha).length < 8) throw new Error('senha precisa de pelo menos 8 caracteres');
+  if (!ROLES.includes(role)) role = 'editor';
+  const user = {
+    id: 'u_' + crypto.randomBytes(4).toString('hex'),
+    login,
+    nome: String(nome || login).slice(0, 80),
+    hash: bcrypt.hashSync(String(senha), 10),
+    role,
+    ativo: true,
+    criadoEm: new Date().toISOString(),
+  };
+  users.push(user);
+  await saveUsers(users);
+  return publicUser(user);
+}
+
+async function updateUser(id, patch, atorId) {
+  const users = await getUsers();
+  const user = users.find((u) => u.id === id);
+  if (!user) throw new Error('usuário não encontrado');
+  if (typeof patch.nome === 'string') user.nome = patch.nome.slice(0, 80);
+  if (ROLES.includes(patch.role)) {
+    if (user.id === atorId && patch.role !== 'admin') throw new Error('você não pode rebaixar a si mesmo');
+    user.role = patch.role;
+  }
+  if (typeof patch.ativo === 'boolean') {
+    if (user.id === atorId && !patch.ativo) throw new Error('você não pode desativar a si mesmo');
+    user.ativo = patch.ativo;
+  }
+  if (patch.senha) {
+    if (String(patch.senha).length < 8) throw new Error('senha precisa de pelo menos 8 caracteres');
+    user.hash = bcrypt.hashSync(String(patch.senha), 10);
+  }
+  const admins = users.filter((u) => u.role === 'admin' && u.ativo);
+  if (!admins.length) throw new Error('o sistema precisa de pelo menos um admin ativo');
+  await saveUsers(users);
+  return publicUser(user);
+}
+
+async function listUsers() {
+  return (await getUsers()).map(publicUser);
+}
+
+// ---------- sessão ----------
 function sign(value) {
-  return crypto.createHmac('sha256', SECRET).update(value).digest('hex');
+  return crypto.createHmac('sha256', store.SECRET).update(value).digest('hex');
 }
 
-function makeSessionCookie() {
+function makeSessionCookie(userId) {
   const exp = Date.now() + SESSION_DAYS * 24 * 3600 * 1000;
-  return `${exp}.${sign(String(exp))}`;
+  return `${userId}.${exp}.${sign(`${userId}.${exp}`)}`;
 }
 
 function parseCookies(req) {
@@ -59,28 +113,32 @@ function parseCookies(req) {
   return out;
 }
 
-function isAuthed(req) {
+async function userFromReq(req) {
   const raw = parseCookies(req)[COOKIE_NAME];
-  if (!raw) return false;
-  const [exp, sig] = raw.split('.');
-  if (!exp || !sig) return false;
-  if (Number(exp) < Date.now()) return false;
-  const expected = sign(exp);
-  return sig.length === expected.length &&
-    crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+  if (!raw) return null;
+  const parts = raw.split('.');
+  if (parts.length !== 3) return null;
+  const [uid, exp, sig] = parts;
+  if (Number(exp) < Date.now()) return null;
+  const expected = sign(`${uid}.${exp}`);
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  const users = await getUsers();
+  const user = users.find((u) => u.id === uid && u.ativo);
+  return user ? publicUser(user) : null;
 }
 
-function setSession(res) {
+function setSession(res, userId) {
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   res.setHeader('Set-Cookie',
-    `${COOKIE_NAME}=${makeSessionCookie()}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 24 * 3600}${secure}`);
+    `${COOKIE_NAME}=${makeSessionCookie(userId)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 24 * 3600}${secure}`);
 }
 
 function clearSession(res) {
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
 }
 
-// Rate limit simples de login por IP: 5 tentativas / 15 min
+// Rate limit de login por IP (por instância; em serverless é melhor-esforço,
+// complementado pelo custo do bcrypt e pelo registro em auditoria)
 const attempts = new Map();
 function loginAllowed(ip) {
   const now = Date.now();
@@ -96,9 +154,24 @@ function registerAttempt(ip, ok) {
   else rec.count += 1;
 }
 
+// ---------- middlewares ----------
 function requireAuth(req, res, next) {
-  if (!isAuthed(req)) return res.status(401).json({ error: 'não autenticado' });
-  next();
+  userFromReq(req).then((user) => {
+    if (!user) return res.status(401).json({ error: 'não autenticado' });
+    req.user = user;
+    next();
+  }).catch(next);
 }
 
-module.exports = { checkPassword, isAuthed, setSession, clearSession, loginAllowed, registerAttempt, requireAuth };
+function requireAdmin(req, res, next) {
+  requireAuth(req, res, () => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'apenas administradores' });
+    next();
+  });
+}
+
+module.exports = {
+  checkLogin, listUsers, createUser, updateUser, userFromReq,
+  setSession, clearSession, loginAllowed, registerAttempt,
+  requireAuth, requireAdmin,
+};

@@ -4,7 +4,8 @@
     "whatsappNumber": "5547999999999",
     "pedidoMinimo": "R$ 2.000",
     "instagram": "",
-    "facebook": ""
+    "facebook": "",
+    "modoLancamento": "on"
   },
   "tracking": {
     "ga4Id": "",

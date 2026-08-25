@@ -1,12 +1,10 @@
-// Persistência do conteúdo em JSON com gravação atômica.
-// Sem banco de dados: 1 admin, poucos dados, baixa frequência de escrita.
+// Conteúdo editável do site (textos, imagens, config, tracking).
+// Persistido via store (disco em dev, Vercel Blob em produção).
 const fs = require('fs');
 const path = require('path');
+const store = require('./store');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const DEFAULTS_FILE = path.join(DATA_DIR, 'content.defaults.json');
-const CONTENT_FILE = path.join(DATA_DIR, 'content.json');
-
+const DEFAULTS_FILE = path.join(__dirname, '..', '..', 'data', 'content.defaults.json');
 const LAYOUTS = ['v1', 'v2', 'v3'];
 
 function deepMerge(base, extra) {
@@ -21,44 +19,56 @@ function deepMerge(base, extra) {
   return out;
 }
 
-function load() {
+async function load() {
   const defaults = JSON.parse(fs.readFileSync(DEFAULTS_FILE, 'utf8'));
-  if (!fs.existsSync(CONTENT_FILE)) return defaults;
-  try {
-    return deepMerge(defaults, JSON.parse(fs.readFileSync(CONTENT_FILE, 'utf8')));
-  } catch {
-    console.error('content.json corrompido — usando defaults');
-    return defaults;
-  }
+  const saved = await store.getJSON('content', null);
+  return saved ? deepMerge(defaults, saved) : defaults;
 }
 
-function save(content) {
-  const tmp = CONTENT_FILE + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(content, null, 2));
-  fs.renameSync(tmp, CONTENT_FILE);
+async function save(content) {
+  await store.setJSON('content', content);
+}
+
+// Caminho de imagem aceito: assets do repositório, uploads locais
+// ou URL do CDN do Vercel Blob
+function validImagePath(val) {
+  return /^(assets\/img|uploads)\/[\w .-]+$/.test(val) ||
+    /^https:\/\/[\w-]+\.public\.blob\.vercel-storage\.com\/[\w/ .%-]+$/.test(val);
 }
 
 // Aplica um patch vindo do editor, validando o formato.
-function applyPatch(patch) {
-  const cur = load();
+// Retorna { content, resumo } — resumo alimenta o log de auditoria.
+async function applyPatch(patch) {
+  const cur = await load();
   const next = { ...cur };
+  const resumo = [];
 
   if (patch.config && typeof patch.config === 'object') {
-    const allowed = ['layoutAtivo', 'whatsappNumber', 'pedidoMinimo', 'instagram', 'facebook'];
+    const allowed = ['layoutAtivo', 'whatsappNumber', 'pedidoMinimo', 'instagram', 'facebook', 'modoLancamento'];
     next.config = { ...cur.config };
+    const mudados = [];
     for (const k of allowed) {
-      if (typeof patch.config[k] === 'string') next.config[k] = patch.config[k].slice(0, 500);
+      if (typeof patch.config[k] === 'string' && patch.config[k] !== cur.config[k]) {
+        next.config[k] = patch.config[k].slice(0, 500);
+        mudados.push(k);
+      }
     }
     if (!LAYOUTS.includes(next.config.layoutAtivo)) next.config.layoutAtivo = 'v1';
+    if (mudados.length) resumo.push(`config: ${mudados.join(', ')}`);
   }
 
   if (patch.tracking && typeof patch.tracking === 'object') {
     const allowed = ['ga4Id', 'gtmId', 'metaPixelId', 'tiktokPixelId',
       'googleSiteVerification', 'facebookDomainVerification', 'ogImage'];
     next.tracking = { ...cur.tracking };
+    const mudados = [];
     for (const k of allowed) {
-      if (typeof patch.tracking[k] === 'string') next.tracking[k] = patch.tracking[k].trim().slice(0, 500);
+      if (typeof patch.tracking[k] === 'string' && patch.tracking[k].trim() !== cur.tracking[k]) {
+        next.tracking[k] = patch.tracking[k].trim().slice(0, 500);
+        mudados.push(k);
+      }
     }
+    if (mudados.length) resumo.push(`rastreamento: ${mudados.join(', ')}`);
   }
 
   if (patch.textos && typeof patch.textos === 'object') {
@@ -66,26 +76,28 @@ function applyPatch(patch) {
     for (const layout of LAYOUTS) {
       if (patch.textos[layout] && typeof patch.textos[layout] === 'object') {
         next.textos[layout] = { ...cur.textos[layout] };
+        let n = 0;
         for (const [key, val] of Object.entries(patch.textos[layout])) {
-          if (val === null) delete next.textos[layout][key]; // null remove o override
-          else if (typeof val === 'string') next.textos[layout][key] = val.slice(0, 20000);
+          if (val === null) { delete next.textos[layout][key]; n++; }
+          else if (typeof val === 'string') { next.textos[layout][key] = val.slice(0, 20000); n++; }
         }
+        if (n) resumo.push(`textos ${layout}: ${n}`);
       }
     }
   }
 
   if (patch.imagens && typeof patch.imagens === 'object') {
     next.imagens = { ...cur.imagens };
+    let n = 0;
     for (const [key, val] of Object.entries(patch.imagens)) {
-      if (val === null) delete next.imagens[key];
-      else if (typeof val === 'string' && /^(assets\/img|uploads)\/[\w .-]+$/.test(val)) {
-        next.imagens[key] = val;
-      }
+      if (val === null) { delete next.imagens[key]; n++; }
+      else if (typeof val === 'string' && validImagePath(val)) { next.imagens[key] = val; n++; }
     }
+    if (n) resumo.push(`imagens: ${n}`);
   }
 
-  save(next);
-  return next;
+  await save(next);
+  return { content: next, resumo: resumo.join(' · ') || 'sem mudanças' };
 }
 
-module.exports = { load, save, applyPatch, LAYOUTS, DATA_DIR };
+module.exports = { load, save, applyPatch, LAYOUTS };

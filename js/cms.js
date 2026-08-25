@@ -77,10 +77,106 @@
     }, true);
   }
 
+  // ============================================================
+  // Modo lançamento: tela de apresentação que cobre o site até a
+  // configuração ser finalizada. Easter egg: clicar no T e depois
+  // no K de "Tuck Kids" abre o campo de senha; a senha certa
+  // libera o site (fica liberado na sessão do navegador).
+  // Desativável no painel (Configurações → Modo lançamento).
+  // ============================================================
+  var LAUNCH_HASH = 'c710bfe84948fb886c51a79a57bc06f2f238333d37d1f4e1f3ed2f75b297f963';
+
+  function launchGate() {
+    const TK = window.__TK;
+    if (!TK || TK.authed) return;                       // painel nunca é bloqueado
+    if ((TK.config || {}).modoLancamento !== 'on') return;
+    let unlocked = false;
+    try { unlocked = sessionStorage.getItem('tk_unlock') === '1'; } catch (_) {}
+    if (unlocked) return;
+
+    const ov = document.createElement('div');
+    ov.id = 'tk-launch';
+    ov.innerHTML = `
+      <style>
+        #tk-launch { position: fixed; inset: 0; z-index: 2147483000; background: #FBF7EF; display: grid;
+          place-items: center; text-align: center; font-family: 'Nunito Sans', -apple-system, sans-serif; }
+        #tk-launch .tk-l-dot { position: absolute; border-radius: 50%; animation: tkfloat 7s ease-in-out infinite; }
+        #tk-launch h1 { font-family: 'Poppins', 'Baloo 2', sans-serif; font-weight: 700; color: #101B4D;
+          font-size: clamp(44px, 9vw, 96px); margin: 0 0 10px; letter-spacing: -.02em; user-select: none; }
+        #tk-launch h1 span { color: #4F9993; }
+        #tk-launch .tk-l-letra { cursor: default; transition: transform .15s; display: inline-block; }
+        #tk-launch .tk-l-letra:active { transform: scale(.92); }
+        #tk-launch p { margin: 0; font-size: clamp(16px, 2.6vw, 22px); font-weight: 700; color: rgba(16,27,77,.6); }
+        #tk-launch .tk-l-brev { margin-top: 34px; display: inline-flex; align-items: center; gap: 9px;
+          background: #fff; border: 1.5px solid rgba(16,27,77,.1); border-radius: 999px; padding: 10px 22px;
+          font-size: 13.5px; font-weight: 800; color: #4F9993; letter-spacing: .08em; text-transform: uppercase; }
+        #tk-launch .tk-l-brev i { width: 9px; height: 9px; border-radius: 50%; background: #FF6655;
+          animation: tkfloat 2s ease-in-out infinite; }
+        #tk-launch form { margin-top: 26px; display: none; gap: 10px; justify-content: center; }
+        #tk-launch form.aberta { display: flex; }
+        #tk-launch input { border: 1.5px solid rgba(16,27,77,.2); border-radius: 999px; padding: 12px 20px;
+          font: 700 15px 'Nunito Sans', sans-serif; color: #101B4D; width: 210px; text-align: center; outline: none; }
+        #tk-launch input:focus { border-color: #4F9993; }
+        #tk-launch button { border: 0; border-radius: 999px; padding: 12px 24px; background: #FF6655; color: #fff;
+          font: 700 15px 'Nunito Sans', sans-serif; cursor: pointer; }
+        #tk-launch .tk-l-erro { animation: tkshake .4s; border-color: #FF6655 !important; }
+        @keyframes tkfloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+        @keyframes tkshake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+      </style>
+      <div class="tk-l-dot" style="top:12%;left:8%;width:120px;height:120px;background:#9BCBC5;opacity:.35"></div>
+      <div class="tk-l-dot" style="bottom:14%;right:10%;width:170px;height:170px;background:#F6C9B7;opacity:.4;animation-delay:1.2s"></div>
+      <div class="tk-l-dot" style="top:22%;right:18%;width:22px;height:22px;background:#FFB52E;animation-delay:.6s"></div>
+      <div class="tk-l-dot" style="bottom:26%;left:16%;width:15px;height:15px;background:#7778B7;animation-delay:2s"></div>
+      <div style="position:relative;padding:20px">
+        <h1><span class="tk-l-letra" data-eg="T">T</span>uck <span><span class="tk-l-letra" data-eg="K">K</span>ids</span></h1>
+        <p>Vestindo infâncias, criando memórias.</p>
+        <div class="tk-l-brev"><i></i>Em breve no ar</div>
+        <form autocomplete="off">
+          <input type="password" placeholder="senha de acesso" aria-label="Senha de acesso">
+          <button type="submit">Entrar</button>
+        </form>
+      </div>`;
+    document.documentElement.appendChild(ov);
+    document.documentElement.style.overflow = 'hidden';
+
+    // easter egg: T e depois K (em até 3s)
+    let tClicado = 0;
+    const form = ov.querySelector('form');
+    const input = ov.querySelector('input');
+    ov.querySelectorAll('.tk-l-letra').forEach((el) => {
+      el.addEventListener('click', () => {
+        if (el.dataset.eg === 'T') tClicado = Date.now();
+        else if (el.dataset.eg === 'K' && Date.now() - tClicado < 3000) {
+          form.classList.add('aberta');
+          input.focus();
+        }
+      });
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      let hash = '';
+      try {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input.value.trim().toLowerCase()));
+        hash = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+      } catch (_) {}
+      if (hash === LAUNCH_HASH) {
+        try { sessionStorage.setItem('tk_unlock', '1'); } catch (_) {}
+        document.documentElement.style.overflow = '';
+        ov.remove();
+      } else {
+        input.value = '';
+        input.classList.add('tk-l-erro');
+        setTimeout(() => input.classList.remove('tk-l-erro'), 450);
+      }
+    });
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { hydrate(); bindConversionEvents(); });
+    document.addEventListener('DOMContentLoaded', () => { hydrate(); bindConversionEvents(); launchGate(); });
   } else {
     hydrate();
     bindConversionEvents();
+    launchGate();
   }
 })();

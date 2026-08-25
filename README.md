@@ -34,7 +34,28 @@ python3 -m http.server 8000
 # abra http://localhost:8000
 ```
 
+## Deploy na Vercel (produção)
+
+O site público é **estático** (gerado no build a partir do conteúdo salvo); o painel e a API rodam como função serverless. **Todo "Salvar" no painel dispara um Deploy Hook → novo build → site atualizado (~1 min).** A edição ao vivo acontece em `/painel` (sempre lê o conteúdo mais recente).
+
+Passo a passo:
+
+1. **Importar o projeto**: vercel.com → Add New → Project → importe `jackson973/tuckkids_V1` (as configurações vêm do `vercel.json`)
+2. **Storage**: aba Storage do projeto → Create → **Blob** → conectar ao projeto (cria `BLOB_READ_WRITE_TOKEN` sozinha)
+3. **Variáveis** (Settings → Environment Variables): `SESSION_SECRET` (obrigatória — valor longo aleatório), `ADMIN_PASSWORD` (senha do primeiro admin), `SITE_URL` (domínio final)
+4. **Deploy Hook**: Settings → Git → Deploy Hooks → Create (branch `master`) → copie a URL para a variável `DEPLOY_HOOK_URL` → Redeploy
+
+Rotas: `/` site publicado (layout ativo, sem seletor) · `/v1|v2|v3.html` comparação · `/admin` login · `/painel` edição ao vivo.
+
+## Modo lançamento ("Em breve")
+
+Enquanto `Configurações → Modo lançamento = on`, o público vê só a tela **"Tuck Kids — Vestindo infâncias, criando memórias"**. Easter egg de acesso: clicar no **T** e depois no **K** do título abre o campo de senha (senha: `vamosvencer`) — libera o site para aquela sessão do navegador. O painel `/painel` nunca é bloqueado. Para lançar o site de verdade: mude para `off` e salve.
+
 ## Painel de edição (backend)
+
+- **Usuários e papéis**: `admin` (tudo, inclusive criar/desativar usuários e ver histórico) e `editor` (edita conteúdo — ideal para a agência de marketing). Gestão pelo botão 👥 do painel. O primeiro admin nasce de `ADMIN_PASSWORD` (login `admin`).
+- **Auditoria**: todo login (inclusive falhas, com IP), alteração de conteúdo, upload de imagem, mudança de usuário e publicação ficam no 📜 Histórico (últimas 800 entradas, visível só para admin; criptografado no Blob).
+- **Armazenamento**: local/VPS → pasta `data/`; Vercel → Blob (conteúdo público em JSON; usuários e auditoria criptografados AES-256-GCM com chave derivada de `SESSION_SECRET`; imagens com URL de CDN).
 
 - **Login**: `/admin` — senha única de admin (bcrypt; definida por `ADMIN_PASSWORD` no primeiro boot; para trocar, apague `data/admin.json` e reinicie). Sessão em cookie httpOnly assinado, rate-limit de 5 tentativas/15min.
 - **Edição inline**: autenticado, a própria página vira editor — clique num texto para editar, numa imagem para trocar (upload). "Salvar" persiste tudo.
