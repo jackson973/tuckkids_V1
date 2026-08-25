@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tuck Kids — Configuração inicial</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" type="image/jpeg" href="/assets/img/tuck-logo.jpg">
+<link rel="stylesheet" href="/css/fonts.css">
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #FBF7EF;
+  font-family: 'Nunito Sans', -apple-system, sans-serif; color: #101B4D; }
+.card { background: #fff; border: 1.5px solid rgba(16,27,77,.08); border-radius: 24px;
+  padding: 40px 36px; width: min(430px, 92vw); box-shadow: 0 20px 50px rgba(16,27,77,.1); text-align: center; }
+.card img { height: 74px; mix-blend-mode: multiply; }
+h1 { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 20px; margin: 14px 0 4px; }
+p { margin: 0 0 24px; font-size: 14px; font-weight: 600; color: rgba(16,27,77,.55); line-height: 1.5; }
+input { width: 100%; border: 1.5px solid rgba(16,27,77,.2); border-radius: 12px; padding: 13px 16px;
+  font: 600 15px 'Nunito Sans', sans-serif; color: #101B4D; margin-bottom: 12px; }
+input:focus { outline: 2px solid #4F9993; border-color: transparent; }
+button { width: 100%; border: 0; border-radius: 999px; padding: 14px; background: #FF6655; color: #fff;
+  font: 600 16px 'Poppins', sans-serif; cursor: pointer; box-shadow: 0 6px 18px rgba(255,102,85,.32); }
+button:hover { background: #e9503f; }
+button:disabled { opacity: .5; }
+.err { color: #d0342a; font-size: 13.5px; font-weight: 700; min-height: 20px; margin: 12px 0 0; }
+.aviso { margin-top: 16px; font-size: 12px; font-weight: 700; color: rgba(16,27,77,.4); }
+</style>
+</head>
+<body>
+<form class="card" id="f">
+<img src="/assets/img/tuck-logo.jpg" alt="Tuck Kids">
+<h1>Configuração inicial</h1>
+<p>Bem-vindo! Crie o <strong>primeiro administrador</strong> do painel.<br>
+Os dados ficam gravados com criptografia no armazenamento do sistema.</p>
+<input type="text" id="nome" placeholder="Seu nome" autocomplete="name" autofocus required>
+<input type="text" id="login" placeholder="Login (ex.: jackson)" autocomplete="username" required
+  pattern="[a-zA-Z0-9._-]{3,40}">
+<input type="password" id="senha" placeholder="Senha (mín. 8 caracteres)" autocomplete="new-password" minlength="8" required>
+<input type="password" id="senha2" placeholder="Confirme a senha" autocomplete="new-password" minlength="8" required>
+<button type="submit" id="btn">Criar administrador e entrar</button>
+<div class="err" id="err"></div>
+<div class="aviso">Esta tela só existe enquanto nenhum usuário foi criado.</div>
+</form>
+<script>
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('btn'), err = document.getElementById('err');
+  const senha = document.getElementById('senha').value;
+  if (senha !== document.getElementById('senha2').value) {
+    err.textContent = 'As senhas não conferem.';
+    return;
+  }
+  btn.disabled = true; err.textContent = '';
+  try {
+    const r = await fetch('/api/setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: document.getElementById('nome').value,
+        login: document.getElementById('login').value,
+        senha,
+      }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'erro');
+    location.href = '/painel';
+  } catch (ex) {
+    err.textContent = ex.message;
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

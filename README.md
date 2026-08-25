@@ -42,7 +42,7 @@ Passo a passo:
 
 1. **Importar o projeto**: vercel.com → Add New → Project → importe `jackson973/tuckkids_V1` (as configurações vêm do `vercel.json`)
 2. **Storage**: aba Storage do projeto → Create → **Blob** → conectar ao projeto (cria `BLOB_READ_WRITE_TOKEN` sozinha)
-3. **Variáveis** (Settings → Environment Variables): `SESSION_SECRET` (obrigatória — valor longo aleatório), `ADMIN_PASSWORD` (senha do primeiro admin), `SITE_URL` (domínio final)
+3. **Variáveis** (Settings → Environment Variables): `SESSION_SECRET` (obrigatória — valor longo aleatório) e `SITE_URL` (domínio final). *Nenhuma senha em variável*: no primeiro acesso ao `/admin` a tela de **Configuração Inicial** cria o primeiro administrador, gravado criptografado no armazenamento (`ADMIN_PASSWORD` existe só como semente opcional)
 4. **Deploy Hook**: Settings → Git → Deploy Hooks → Create (branch `master`) → copie a URL para a variável `DEPLOY_HOOK_URL` → Redeploy
 
 Rotas: `/` site publicado (layout ativo, sem seletor) · `/v1|v2|v3.html` comparação · `/admin` login · `/painel` edição ao vivo.
@@ -53,11 +53,11 @@ Enquanto `Configurações → Modo lançamento = on`, o público vê só a tela 
 
 ## Painel de edição (backend)
 
-- **Usuários e papéis**: `admin` (tudo, inclusive criar/desativar usuários e ver histórico) e `editor` (edita conteúdo — ideal para a agência de marketing). Gestão pelo botão 👥 do painel. O primeiro admin nasce de `ADMIN_PASSWORD` (login `admin`).
+- **Usuários e papéis**: `admin` (tudo, inclusive criar/desativar usuários e ver histórico) e `editor` (edita conteúdo — ideal para a agência de marketing). Gestão pelo botão 👥 do painel. O primeiro admin é criado na tela de Configuração Inicial do `/admin` (ou, opcionalmente, semeado por `ADMIN_PASSWORD`).
 - **Auditoria**: todo login (inclusive falhas, com IP), alteração de conteúdo, upload de imagem, mudança de usuário e publicação ficam no 📜 Histórico (últimas 800 entradas, visível só para admin; criptografado no Blob).
 - **Armazenamento**: local/VPS → pasta `data/`; Vercel → Blob (conteúdo público em JSON; usuários e auditoria criptografados AES-256-GCM com chave derivada de `SESSION_SECRET`; imagens com URL de CDN).
 
-- **Login**: `/admin` — senha única de admin (bcrypt; definida por `ADMIN_PASSWORD` no primeiro boot; para trocar, apague `data/admin.json` e reinicie). Sessão em cookie httpOnly assinado, rate-limit de 5 tentativas/15min.
+- **Login**: `/admin` — senhas com bcrypt, sessão em cookie httpOnly assinado, rate-limit de 5 tentativas/15min.
 - **Edição inline**: autenticado, a própria página vira editor — clique num texto para editar, numa imagem para trocar (upload). "Salvar" persiste tudo.
 - **Compatível com os 3 layouts**: textos são salvos por versão (v1/v2/v3); imagens e configurações são globais. O campo "Layout ativo" define qual versão a raiz `/` serve.
 - **Rastreamento configurável pelo painel** (injetado server-side no `<head>`): Meta Pixel, Google Analytics 4, Google Tag Manager, TikTok Pixel, verificação do Google Search Console e do Meta (domain verification), `og:image`. Cliques em botões de WhatsApp disparam eventos de conversão (GA4 `whatsapp_click`/`generate_lead`, Pixel `Contact`).

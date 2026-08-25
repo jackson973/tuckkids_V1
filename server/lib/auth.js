@@ -10,25 +10,50 @@ const COOKIE_NAME = 'tk_session';
 const ROLES = ['admin', 'editor'];
 
 // ---------- usuários ----------
+// Sem usuários cadastrados o sistema entra em modo "configuração inicial":
+// o /admin exibe a tela de criação do primeiro administrador, gravado
+// direto no armazenamento de dados (criptografado no Blob).
+// ADMIN_PASSWORD (opcional) serve apenas como semente automática.
 async function getUsers() {
   const data = await store.getJSON('users', null, { privado: true });
   if (data && Array.isArray(data.users) && data.users.length) return data.users;
-  // bootstrap: primeiro admin a partir de ADMIN_PASSWORD
-  const initial = process.env.ADMIN_PASSWORD || 'tuckkids2026';
-  if (!process.env.ADMIN_PASSWORD) {
-    console.warn('[auth] ADMIN_PASSWORD não definida — admin inicial com senha "tuckkids2026". TROQUE em produção.');
+  if (process.env.ADMIN_PASSWORD) {
+    const users = [{
+      id: 'u_' + crypto.randomBytes(4).toString('hex'),
+      login: 'admin',
+      nome: 'Administrador',
+      hash: bcrypt.hashSync(process.env.ADMIN_PASSWORD, 10),
+      role: 'admin',
+      ativo: true,
+      criadoEm: new Date().toISOString(),
+    }];
+    await store.setJSON('users', { users }, { privado: true });
+    return users;
   }
-  const users = [{
+  return [];
+}
+
+async function setupPendente() {
+  return (await getUsers()).length === 0;
+}
+
+// Cria o primeiro admin (apenas com o sistema zerado)
+async function createFirstAdmin({ login, nome, senha }) {
+  if (!(await setupPendente())) throw new Error('a configuração inicial já foi concluída');
+  login = String(login || '').toLowerCase().trim();
+  if (!/^[a-z0-9._-]{3,40}$/.test(login)) throw new Error('login inválido (3-40 caracteres, letras/números/._-)');
+  if (!senha || String(senha).length < 8) throw new Error('senha precisa de pelo menos 8 caracteres');
+  const user = {
     id: 'u_' + crypto.randomBytes(4).toString('hex'),
-    login: 'admin',
-    nome: 'Administrador',
-    hash: bcrypt.hashSync(initial, 10),
+    login,
+    nome: String(nome || login).slice(0, 80),
+    hash: bcrypt.hashSync(String(senha), 10),
     role: 'admin',
     ativo: true,
     criadoEm: new Date().toISOString(),
-  }];
-  await store.setJSON('users', { users }, { privado: true });
-  return users;
+  };
+  await store.setJSON('users', { users: [user] }, { privado: true });
+  return publicUser(user);
 }
 
 async function saveUsers(users) {
@@ -171,7 +196,7 @@ function requireAdmin(req, res, next) {
 }
 
 module.exports = {
-  checkLogin, listUsers, createUser, updateUser, userFromReq,
+  checkLogin, listUsers, createUser, updateUser, userFromReq, setupPendente, createFirstAdmin,
   setSession, clearSession, loginAllowed, registerAttempt,
   requireAuth, requireAdmin,
 };

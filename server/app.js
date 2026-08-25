@@ -78,7 +78,20 @@ for (const layout of contentStore.LAYOUTS) {
 // ---------- login ----------
 app.get('/admin', async (req, res) => {
   if (await auth.userFromReq(req)) return res.redirect('/painel');
+  if (await auth.setupPendente()) return res.sendFile(path.join(ROOT, 'admin', 'setup.html'));
   res.sendFile(path.join(ROOT, 'admin', 'login.html'));
+});
+
+// Configuração inicial: cria o primeiro admin (só funciona com o sistema zerado)
+app.post('/api/setup', async (req, res) => {
+  try {
+    const u = await auth.createFirstAdmin(req.body || {});
+    auth.setSession(res, u.id);
+    await audit.record(u, 'setup', 'primeiro administrador criado na configuração inicial');
+    res.json({ ok: true, nome: u.nome });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
 });
 
 app.post('/api/login', async (req, res, next) => {
