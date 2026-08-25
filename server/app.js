@@ -60,7 +60,7 @@ app.get(['/painel', '/painel/:layout'], async (req, res, next) => {
     const layout = contentStore.LAYOUTS.includes(req.params.layout)
       ? req.params.layout : content.config.layoutAtivo;
     const html = fs.readFileSync(path.join(ROOT, `${layout}.html`), 'utf8');
-    res.type('html').send(inject(html, { content, layout, authed: true, user }));
+    res.type('html').send(inject(html, { content, layout, authed: true, user, baseHref: true }));
   } catch (e) { next(e); }
 });
 

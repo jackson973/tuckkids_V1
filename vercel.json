@@ -8,9 +8,25 @@
     }
   },
   "rewrites": [
-    { "source": "/admin", "destination": "/api/server" },
-    { "source": "/painel", "destination": "/api/server" },
-    { "source": "/painel/:rest*", "destination": "/api/server" },
-    { "source": "/api/:rest*", "destination": "/api/server" }
+    {
+      "source": "/js/editor.js",
+      "destination": "/api/server"
+    },
+    {
+      "source": "/admin",
+      "destination": "/api/server"
+    },
+    {
+      "source": "/painel",
+      "destination": "/api/server"
+    },
+    {
+      "source": "/painel/:rest*",
+      "destination": "/api/server"
+    },
+    {
+      "source": "/api/:rest*",
+      "destination": "/api/server"
+    }
   ]
 }

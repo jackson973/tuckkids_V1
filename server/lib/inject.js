@@ -52,7 +52,7 @@ function trackingTags(tracking) {
   return parts.join('\n');
 }
 
-function inject(html, { content, layout, authed, user }) {
+function inject(html, { content, layout, authed, user, baseHref }) {
   const boot = {
     layout,
     authed: !!authed,
@@ -63,6 +63,7 @@ function inject(html, { content, layout, authed, user }) {
   };
 
   const headExtra = [
+    baseHref ? '<base href="/">' : '',
     `<script>window.__TK=${JSON.stringify(boot).replace(/<\//g, '<\\/')};</script>`,
     trackingTags(content.tracking),
   ].filter(Boolean).join('\n');
