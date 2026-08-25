@@ -49,14 +49,14 @@ function siteUrl() {
   for (const layout of contentStore.LAYOUTS) {
     const html = fs.readFileSync(path.join(ROOT, `${layout}.html`), 'utf8');
     fs.writeFileSync(path.join(DIST, `${layout}.html`),
-      inject(html, { content, layout, authed: false }));
+      inject(html, { content, layout, authed: false, siteUrl: siteUrl() }));
   }
 
   // index = layout ativo, sem o seletor de versões (site final)
   let indexHtml = fs.readFileSync(path.join(ROOT, `${ativo}.html`), 'utf8');
   indexHtml = indexHtml.replace(/<!-- SELETOR DE VERSOES -->[\s\S]*?<\/nav>\n?/, '');
   fs.writeFileSync(path.join(DIST, 'index.html'),
-    inject(indexHtml, { content, layout: ativo, authed: false }));
+    inject(indexHtml, { content, layout: ativo, authed: false, siteUrl: siteUrl() }));
 
   // SEO
   const base = siteUrl();

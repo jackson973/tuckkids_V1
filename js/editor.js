@@ -208,7 +208,7 @@
     ['input', 'tracking.googleSiteVerification', 'Google Search Console (content da meta tag)', ''],
     ['input', 'tracking.facebookDomainVerification', 'Meta domain verification (content da meta tag)', ''],
     ['h3', 'Compartilhamento'],
-    ['input', 'tracking.ogImage', 'Imagem de compartilhamento (og:image) — URL', ''],
+    ['input', 'tracking.ogImage', 'Imagem de compartilhamento — opcional', 'vazio = cartão padrão com a logo'],
   ];
 
   const panel = document.createElement('div');

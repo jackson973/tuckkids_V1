@@ -13,7 +13,7 @@ function safeId(s) {
   return /^[\w-]{1,64}$/.test(String(s || '')) ? String(s) : '';
 }
 
-function trackingTags(tracking) {
+function trackingTags(tracking, siteUrl) {
   const t = tracking || {};
   const parts = [];
 
@@ -23,8 +23,13 @@ function trackingTags(tracking) {
   if (t.facebookDomainVerification) {
     parts.push(`<meta name="facebook-domain-verification" content="${esc(t.facebookDomainVerification)}">`);
   }
-  if (t.ogImage) {
-    parts.push(`<meta property="og:image" content="${esc(t.ogImage)}">`);
+  // Imagem de compartilhamento: a configurada no painel ou, por padrão,
+  // o cartão gerado com a logo (assets/img/og-card.jpg)
+  const og = t.ogImage || (siteUrl ? `${siteUrl}/assets/img/og-card.jpg` : '');
+  if (og) {
+    parts.push(`<meta property="og:image" content="${esc(og)}">`);
+    parts.push('<meta property="og:image:width" content="1200">');
+    parts.push('<meta property="og:image:height" content="630">');
   }
 
   const gtm = safeId(t.gtmId);
@@ -52,7 +57,7 @@ function trackingTags(tracking) {
   return parts.join('\n');
 }
 
-function inject(html, { content, layout, authed, user, baseHref }) {
+function inject(html, { content, layout, authed, user, baseHref, siteUrl }) {
   const boot = {
     layout,
     authed: !!authed,
@@ -65,7 +70,7 @@ function inject(html, { content, layout, authed, user, baseHref }) {
   const headExtra = [
     baseHref ? '<base href="/">' : '',
     `<script>window.__TK=${JSON.stringify(boot).replace(/<\//g, '<\\/')};</script>`,
-    trackingTags(content.tracking),
+    trackingTags(content.tracking, siteUrl),
   ].filter(Boolean).join('\n');
 
   const bodyExtra = [
