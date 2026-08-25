@@ -128,8 +128,8 @@
         <div style="position:relative;display:inline-block;margin-bottom:6px">
           <img src="assets/img/tuck-logo.jpg" alt="Tuck Kids" draggable="false"
             style="height:clamp(190px,34vw,320px);width:auto;mix-blend-mode:multiply;user-select:none">
-          <span class="tk-l-letra" data-eg="T" style="position:absolute;left:0;top:0;width:34%;height:100%"></span>
-          <span class="tk-l-letra" data-eg="K" style="position:absolute;right:0;top:0;width:28%;height:76%"></span>
+          <span class="tk-l-letra" data-eg="T" style="position:absolute;left:0;top:0;width:38%;height:100%"></span>
+          <span class="tk-l-letra" data-eg="K" style="position:absolute;right:0;top:0;width:34%;height:100%"></span>
         </div>
         <p>Vestindo infâncias, criando memórias.</p>
         <div class="tk-l-brev"><i></i>Em breve no ar</div>
@@ -141,14 +141,16 @@
     document.documentElement.appendChild(ov);
     document.documentElement.style.overflow = 'hidden';
 
-    // easter egg: T e depois K (em até 3s)
+    // easter egg: clicar no "t" e depois no "k" da logo (em até 12s)
     let tClicado = 0;
     const form = ov.querySelector('form');
     const input = ov.querySelector('input');
     ov.querySelectorAll('.tk-l-letra').forEach((el) => {
-      el.addEventListener('click', () => {
-        if (el.dataset.eg === 'T') tClicado = Date.now();
-        else if (el.dataset.eg === 'K' && Date.now() - tClicado < 3000) {
+      el.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (el.dataset.eg === 'T') {
+          tClicado = Date.now();
+        } else if (el.dataset.eg === 'K' && Date.now() - tClicado < 12000) {
           form.classList.add('aberta');
           input.focus();
         }
