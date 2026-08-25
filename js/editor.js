@@ -37,6 +37,8 @@
     #tk-panel input, #tk-panel select { width: 100%; border: 1.5px solid rgba(16,27,77,.2); border-radius: 10px;
       padding: 9px 12px; font: 600 14px 'Nunito Sans', sans-serif; color: ${NAVY}; box-sizing: border-box; }
     #tk-panel small { display: block; color: rgba(16,27,77,.5); font-size: 11.5px; margin-top: 3px; }
+    #tk-panel .tk-help { margin: 4px 0 6px; padding: 10px 12px; background: #F6F4EF; border-radius: 10px;
+      font-size: 12.5px; font-weight: 600; color: rgba(16,27,77,.65); line-height: 1.5; }
     #tk-toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); z-index: 100001; background: ${NAVY};
       color: ${CREAM}; border-radius: 999px; padding: 12px 22px; font: 700 14px 'Nunito Sans', sans-serif; display: none; }
   `;
@@ -193,21 +195,25 @@
   // ---------- painel de configurações ----------
   const CFG_FIELDS = [
     ['h3', 'Site'],
+    ['help', 'Configurações gerais. Tudo que você salvar aqui vale para o site publicado após a próxima publicação.'],
     ['select', 'config.layoutAtivo', 'Layout ativo (página inicial)', ['v1', 'v2', 'v3']],
-    ['select', 'config.modoLancamento', 'Modo lançamento (tela "Em breve" com senha)', ['on', 'off']],
+    ['select', 'config.modoLancamento', 'Modo lançamento — "on" mostra só a tela "Em breve" com senha; "off" abre o site ao público', ['on', 'off']],
     ['input', 'config.whatsappNumber', 'WhatsApp (55 + DDD + número)', 'ex.: 5547999999999'],
     ['input', 'config.pedidoMinimo', 'Pedido mínimo (frete grátis)', 'ex.: R$ 2.000'],
     ['input', 'config.instagram', 'Link do Instagram', 'https://instagram.com/...'],
     ['input', 'config.facebook', 'Link do Facebook', 'https://facebook.com/...'],
     ['h3', 'Rastreamento e anúncios'],
+    ['help', 'Cole os IDs fornecidos pelas plataformas. Com eles preenchidos, os códigos de medição são instalados sozinhos no site e cada clique nos botões de WhatsApp é contado como conversão (evento Contact/generate_lead).'],
     ['input', 'tracking.metaPixelId', 'Meta Pixel ID (Facebook/Instagram Ads)', 'somente números'],
     ['input', 'tracking.ga4Id', 'Google Analytics 4 (G-XXXXXXX)', ''],
     ['input', 'tracking.gtmId', 'Google Tag Manager (GTM-XXXXXX) — opcional', ''],
     ['input', 'tracking.tiktokPixelId', 'TikTok Pixel ID — opcional', ''],
     ['h3', 'Verificação de domínio'],
+    ['help', 'Códigos que o Google (Search Console) e o Meta (Business Manager) pedem para provar que o site é seu. Cole apenas o valor "content" da meta tag que eles mostram.'],
     ['input', 'tracking.googleSiteVerification', 'Google Search Console (content da meta tag)', ''],
     ['input', 'tracking.facebookDomainVerification', 'Meta domain verification (content da meta tag)', ''],
     ['h3', 'Compartilhamento'],
+    ['help', 'A imagem do "cartãozinho" de prévia que aparece quando alguém cola o link do site no WhatsApp, Instagram ou Facebook. Deixe vazio para usar o cartão padrão com a logo e o slogan. Para usar outra, cole a URL de uma imagem de 1200×630.'],
     ['input', 'tracking.ogImage', 'Imagem de compartilhamento — opcional', 'vazio = cartão padrão com a logo'],
   ];
 
@@ -215,6 +221,7 @@
   panel.id = 'tk-panel';
   panel.innerHTML = CFG_FIELDS.map(([kind, a, b, c]) => {
     if (kind === 'h3') return `<h3>${a}</h3>`;
+    if (kind === 'help') return `<p class="tk-help">${a}</p>`;
     const id = 'tk-f-' + a.replace('.', '-');
     if (kind === 'select') {
       return `<label for="${id}">${b}</label><select id="${id}" data-path="${a}">${c.map((o) => `<option>${o}</option>`).join('')}</select>`;
