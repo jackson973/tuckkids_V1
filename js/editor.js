@@ -9,7 +9,7 @@
   if (!TK || !TK.authed) return;
 
   const keyFor = window.__TK_keyFor;
-  const pending = { textos: {}, imagens: {}, config: {}, tracking: {} };
+  const pending = { textos: {}, imagens: {}, config: {}, tracking: {}, secoes: {} };
   const NAVY = '#101B4D', CORAL = '#FF6655', CREAM = '#FBF7EF';
 
   // ---------- estilos do editor ----------
@@ -39,6 +39,10 @@
     #tk-panel small { display: block; color: rgba(16,27,77,.5); font-size: 11.5px; margin-top: 3px; }
     #tk-panel .tk-help { margin: 4px 0 6px; padding: 10px 12px; background: #F6F4EF; border-radius: 10px;
       font-size: 12.5px; font-weight: 600; color: rgba(16,27,77,.65); line-height: 1.5; }
+    section[data-tk-oculta] { position: relative; opacity: .35; outline: 3px dashed #7778B7; outline-offset: -3px; }
+    section[data-tk-oculta]::before { content: '🙈 Seção oculta no site publicado'; position: absolute; top: 10px; left: 50%;
+      transform: translateX(-50%); z-index: 30; background: #7778B7; color: #fff; font: 700 12.5px 'Nunito Sans', sans-serif;
+      padding: 7px 16px; border-radius: 999px; white-space: nowrap; }
     #tk-toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); z-index: 100001; background: ${NAVY};
       color: ${CREAM}; border-radius: 999px; padding: 12px 22px; font: 700 14px 'Nunito Sans', sans-serif; display: none; }
   `;
@@ -63,6 +67,7 @@
     </span>
     <span class="tk-grow">clique num texto para editar · numa imagem para trocar</span>
     ${isAdmin ? '<button id="tk-btn-users" type="button">👥 Usuários</button><button id="tk-btn-log" type="button">📜 Histórico</button>' : ''}
+    <button id="tk-btn-sec" type="button">🧩 Seções</button>
     <button id="tk-btn-cfg" type="button">⚙️ Configurações</button>
     <button id="tk-btn-pub" type="button">🚀 Publicar</button>
     <button id="tk-btn-save" type="button" disabled>💾 Salvar</button>
@@ -82,7 +87,8 @@
   const btnSave = bar.querySelector('#tk-btn-save');
   function pendingCount() {
     return Object.keys(pending.textos).length + Object.keys(pending.imagens).length +
-      Object.keys(pending.config).length + Object.keys(pending.tracking).length;
+      Object.keys(pending.config).length + Object.keys(pending.tracking).length +
+      Object.keys(pending.secoes).length;
   }
   function refreshSave() {
     const n = pendingCount();
@@ -91,7 +97,7 @@
   }
 
   function inEditorUI(el) {
-    return el.closest && (el.closest('#tk-toolbar') || el.closest('#tk-panel') || el.closest('#tk-upanel') || el.closest('#tk-lpanel') || el.closest('.ver-switch'));
+    return el.closest && (el.closest('#tk-toolbar') || el.closest('#tk-panel') || el.closest('#tk-upanel') || el.closest('#tk-lpanel') || el.closest('#tk-spanel') || el.closest('.ver-switch'));
   }
 
   // ---------- edição de texto ----------
@@ -256,6 +262,7 @@
   bar.querySelector('#tk-btn-cfg').addEventListener('click', () => {
     upanel.style.display = 'none';
     lpanel.style.display = 'none';
+    spanel.style.display = 'none';
     if (panel.classList.contains('open')) panel.classList.remove('open');
     else openPanel();
   });
@@ -265,6 +272,7 @@
     const patch = {};
     if (Object.keys(pending.textos).length) patch.textos = { [TK.layout]: pending.textos };
     if (Object.keys(pending.imagens).length) patch.imagens = pending.imagens;
+    if (Object.keys(pending.secoes).length) patch.secoes = { [TK.layout]: pending.secoes };
     if (Object.keys(pending.config).length) patch.config = pending.config;
     if (Object.keys(pending.tracking).length) patch.tracking = pending.tracking;
     btnSave.disabled = true;
@@ -283,6 +291,54 @@
       showToast('Erro: ' + err.message);
       refreshSave();
     }
+  });
+
+  // ---------- painel de seções (dobras) ----------
+  const spanel = document.createElement('div');
+  spanel.id = 'tk-spanel';
+  spanel.style.cssText = 'position:fixed;top:46px;right:0;bottom:0;width:min(380px,100vw);z-index:99999;background:#fff;box-shadow:-8px 0 30px rgba(16,27,77,.2);padding:20px 22px 40px;overflow-y:auto;display:none;font:600 14px Nunito Sans,sans-serif;color:#101B4D';
+  document.body.appendChild(spanel);
+
+  function nomeSecao(sec, i) {
+    const t = sec.querySelector('h1, h2, h3');
+    let txt = t ? t.textContent.trim().replace(/\s+/g, ' ') : '';
+    if (!txt && sec.id) txt = sec.id.charAt(0).toUpperCase() + sec.id.slice(1).replace(/-/g, ' ');
+    return txt ? (txt.length > 42 ? txt.slice(0, 42) + '…' : txt) : ('Seção ' + (i + 1));
+  }
+
+  function renderSecoes() {
+    const secs = Array.from(document.querySelectorAll('main > section'));
+    spanel.innerHTML = '<h3 style="font:700 16px Nunito Sans,sans-serif;margin:0 0 6px">🧩 Seções do layout ' + TK.layout.toUpperCase() + '</h3>' +
+      '<p style="margin:0 0 14px;padding:10px 12px;background:#F6F4EF;border-radius:10px;font-size:12.5px;color:rgba(16,27,77,.65);line-height:1.5">Desmarque para ocultar a seção do site publicado. No modo edição ela continua visível, esmaecida. Lembre de salvar.</p>' +
+      secs.map((sec, i) => {
+        const key = sec.dataset.tkSecao || sec.id || ('sec' + i);
+        const oculta = sec.dataset.tkOculta === '1';
+        return '<label style="display:flex;align-items:center;gap:10px;border:1.5px solid rgba(16,27,77,.12);border-radius:12px;padding:11px 14px;margin-bottom:8px;cursor:pointer">' +
+          '<input type="checkbox" data-sec="' + key + '" ' + (oculta ? '' : 'checked') + ' style="width:17px;height:17px;accent-color:#4F9993">' +
+          '<span style="flex:1">' + nomeSecao(sec, i) + '</span>' +
+          '<small style="color:rgba(16,27,77,.4)">' + key + '</small></label>';
+      }).join('');
+    spanel.querySelectorAll('input[data-sec]').forEach((cb) => cb.addEventListener('change', () => {
+      const key = cb.dataset.sec;
+      const sec = document.querySelector('main > section[data-tk-secao="' + key + '"]');
+      if (cb.checked) {
+        pending.secoes[key] = null; // null = volta a exibir
+        if (sec) delete sec.dataset.tkOculta;
+      } else {
+        pending.secoes[key] = false;
+        if (sec) sec.dataset.tkOculta = '1';
+      }
+      refreshSave();
+    }));
+  }
+
+  bar.querySelector('#tk-btn-sec').addEventListener('click', () => {
+    panel.classList.remove('open');
+    if (typeof upanel !== 'undefined') upanel.style.display = 'none';
+    if (typeof lpanel !== 'undefined') lpanel.style.display = 'none';
+    const aberto = spanel.style.display === 'block';
+    spanel.style.display = aberto ? 'none' : 'block';
+    if (!aberto) renderSecoes();
   });
 
   bar.querySelector('#tk-btn-pub').addEventListener('click', async () => {
@@ -377,13 +433,13 @@
   }
   if (isAdmin) {
     bar.querySelector('#tk-btn-users').addEventListener('click', () => {
-      panel.classList.remove('open'); lpanel.style.display = 'none';
+      panel.classList.remove('open'); lpanel.style.display = 'none'; spanel.style.display = 'none';
       const aberto = upanel.style.display === 'block';
       upanel.style.display = aberto ? 'none' : 'block';
       if (!aberto) renderUsers();
     });
     bar.querySelector('#tk-btn-log').addEventListener('click', () => {
-      panel.classList.remove('open'); upanel.style.display = 'none';
+      panel.classList.remove('open'); upanel.style.display = 'none'; spanel.style.display = 'none';
       const aberto = lpanel.style.display === 'block';
       lpanel.style.display = aberto ? 'none' : 'block';
       if (!aberto) renderLog();

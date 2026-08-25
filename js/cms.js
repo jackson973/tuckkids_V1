@@ -56,6 +56,17 @@
       });
     }
 
+    // Seções desativadas no painel: somem para o visitante;
+    // no modo edição ficam esmaecidas (o editor mostra o aviso)
+    document.querySelectorAll('main > section').forEach((sec, i) => {
+      const key = sec.id || ('sec' + i);
+      sec.dataset.tkSecao = key;
+      if ((TK.secoes || {})[key] === false) {
+        if (TK.authed) sec.dataset.tkOculta = '1';
+        else sec.style.display = 'none';
+      }
+    });
+
     // Reaplica config nos nós possivelmente substituídos pelos overrides
     if (window.__TK_applyConfig) window.__TK_applyConfig();
   }

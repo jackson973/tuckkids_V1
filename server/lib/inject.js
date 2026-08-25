@@ -65,6 +65,7 @@ function inject(html, { content, layout, authed, user, baseHref, siteUrl }) {
     config: content.config,
     textos: (content.textos && content.textos[layout]) || {},
     imagens: content.imagens || {},
+    secoes: (content.secoes && content.secoes[layout]) || {},
   };
 
   const headExtra = [

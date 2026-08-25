@@ -86,6 +86,22 @@ async function applyPatch(patch) {
     }
   }
 
+  if (patch.secoes && typeof patch.secoes === 'object') {
+    next.secoes = { ...(cur.secoes || {}) };
+    for (const layout of LAYOUTS) {
+      if (patch.secoes[layout] && typeof patch.secoes[layout] === 'object') {
+        next.secoes[layout] = { ...((cur.secoes || {})[layout] || {}) };
+        let n = 0;
+        for (const [key, val] of Object.entries(patch.secoes[layout])) {
+          if (!/^[\w-]{1,60}$/.test(key)) continue;
+          if (val === false) { next.secoes[layout][key] = false; n++; }
+          else { delete next.secoes[layout][key]; n++; }
+        }
+        if (n) resumo.push(`seções ${layout}: ${n}`);
+      }
+    }
+  }
+
   if (patch.imagens && typeof patch.imagens === 'object') {
     next.imagens = { ...cur.imagens };
     let n = 0;
