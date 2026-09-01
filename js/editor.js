@@ -9,7 +9,7 @@
   if (!TK || !TK.authed) return;
 
   const keyFor = window.__TK_keyFor;
-  const pending = { textos: {}, imagens: {}, config: {}, tracking: {}, secoes: {} };
+  const pending = { textos: {}, imagens: {}, config: {}, tracking: {}, secoes: {}, vsl: {} };
   const NAVY = '#101B4D', CORAL = '#FF6655', CREAM = '#FBF7EF';
 
   // ---------- estilos do editor ----------
@@ -88,7 +88,7 @@
   function pendingCount() {
     return Object.keys(pending.textos).length + Object.keys(pending.imagens).length +
       Object.keys(pending.config).length + Object.keys(pending.tracking).length +
-      Object.keys(pending.secoes).length;
+      Object.keys(pending.secoes).length + Object.keys(pending.vsl).length;
   }
   function refreshSave() {
     const n = pendingCount();
@@ -208,6 +208,13 @@
     ['input', 'config.pedidoMinimo', 'Pedido mínimo (frete grátis)', 'ex.: R$ 2.000'],
     ['input', 'config.instagram', 'Link do Instagram', 'https://instagram.com/...'],
     ['input', 'config.facebook', 'Link do Facebook', 'https://facebook.com/...'],
+    ['h3', '🎬 Vídeo — "Conheça a Tuck Kids"'],
+    ['help', 'Player inteligente estilo VSL: o vídeo começa sozinho e sem som ("clique para ativar o som"), a barra de progresso corre acelerada no início, não dá para arrastar/pular, quem sai e volta pode continuar de onde parou, e um botão de WhatsApp pode aparecer no momento do pitch. Envie um arquivo .mp4 ou cole a URL. Vazio = a seção continua com a imagem atual.'],
+    ['video-upload'],
+    ['input', 'vsl.videoUrl', 'URL do vídeo (.mp4/.webm)', 'preenchida automaticamente ao enviar'],
+    ['select', 'vsl.autoplay', 'Começar sozinho, sem som (Smart Autoplay)', ['on', 'off']],
+    ['input', 'vsl.pitchSegundos', 'Liberar botão de WhatsApp após (segundos)', 'vazio = não mostrar o botão'],
+    ['input', 'vsl.ctaTexto', 'Texto do botão do pitch', 'ex.: Quero o catálogo agora'],
     ['h3', 'Rastreamento e anúncios'],
     ['help', 'Cole os IDs fornecidos pelas plataformas. Com eles preenchidos, os códigos de medição são instalados sozinhos no site e cada clique nos botões de WhatsApp é contado como conversão (evento Contact/generate_lead).'],
     ['input', 'tracking.metaPixelId', 'Meta Pixel ID (Facebook/Instagram Ads)', 'somente números'],
@@ -228,6 +235,12 @@
   panel.innerHTML = CFG_FIELDS.map(([kind, a, b, c]) => {
     if (kind === 'h3') return `<h3>${a}</h3>`;
     if (kind === 'help') return `<p class="tk-help">${a}</p>`;
+    if (kind === 'video-upload') {
+      return `<div style="display:flex;align-items:center;gap:10px;margin:10px 0 4px">
+        <button type="button" id="tk-video-btn" style="border:0;border-radius:999px;padding:10px 18px;background:#4F9993;color:#fff;font:700 13.5px 'Nunito Sans',sans-serif;cursor:pointer">📤 Enviar vídeo</button>
+        <span id="tk-video-status" style="font-size:12.5px;font-weight:700;color:rgba(16,27,77,.55)"></span>
+        <input type="file" id="tk-video-file" accept="video/mp4,video/webm" style="display:none"></div>`;
+    }
     const id = 'tk-f-' + a.replace('.', '-');
     if (kind === 'select') {
       return `<label for="${id}">${b}</label><select id="${id}" data-path="${a}">${c.map((o) => `<option>${o}</option>`).join('')}</select>`;
@@ -236,6 +249,48 @@
       (c ? `<small>${c}</small>` : '');
   }).join('');
   document.body.appendChild(panel);
+
+  // upload de vídeo: client upload direto ao Blob (produção) ou multipart (dev)
+  panel.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'tk-video-btn') panel.querySelector('#tk-video-file').click();
+  });
+  panel.addEventListener('change', async (e) => {
+    if (!e.target || e.target.id !== 'tk-video-file') return;
+    const file = e.target.files[0];
+    if (!file) return;
+    const status = panel.querySelector('#tk-video-status');
+    const setUrl = (url) => {
+      const campo = panel.querySelector('#tk-f-vsl-videoUrl');
+      campo.value = url;
+      pending.vsl.videoUrl = url;
+      refreshSave();
+      status.textContent = '✅ vídeo pronto — clique em Salvar';
+    };
+    try {
+      status.textContent = 'preparando…';
+      const { mode } = await (await fetch('/api/video-upload')).json();
+      if (mode === 'blob') {
+        const { upload } = await import('https://esm.sh/@vercel/blob@0.27.3/client');
+        const blob = await upload('tk/videos/' + file.name.replace(/[^\w.-]+/g, '_'), file, {
+          access: 'public',
+          handleUploadUrl: '/api/video-upload',
+          contentType: file.type,
+          onUploadProgress: (p) => { status.textContent = 'enviando… ' + Math.round((p && p.percentage) || 0) + '%'; },
+        });
+        setUrl(blob.url);
+      } else {
+        status.textContent = 'enviando…';
+        const fd = new FormData();
+        fd.append('video', file);
+        const r = await fetch('/api/video-upload', { method: 'POST', body: fd });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || 'falha no upload');
+        setUrl(j.url);
+      }
+    } catch (err) {
+      status.textContent = '❌ ' + err.message;
+    }
+  });
 
   let cfgLoaded = false;
   async function openPanel() {
@@ -273,6 +328,7 @@
     if (Object.keys(pending.textos).length) patch.textos = { [TK.layout]: pending.textos };
     if (Object.keys(pending.imagens).length) patch.imagens = pending.imagens;
     if (Object.keys(pending.secoes).length) patch.secoes = { [TK.layout]: pending.secoes };
+    if (Object.keys(pending.vsl).length) patch.vsl = pending.vsl;
     if (Object.keys(pending.config).length) patch.config = pending.config;
     if (Object.keys(pending.tracking).length) patch.tracking = pending.tracking;
     btnSave.disabled = true;

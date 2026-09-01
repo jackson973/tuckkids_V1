@@ -66,6 +66,7 @@ function inject(html, { content, layout, authed, user, baseHref, siteUrl }) {
     textos: (content.textos && content.textos[layout]) || {},
     imagens: content.imagens || {},
     secoes: (content.secoes && content.secoes[layout]) || {},
+    vsl: content.vsl || {},
   };
 
   const headExtra = [
@@ -76,6 +77,7 @@ function inject(html, { content, layout, authed, user, baseHref, siteUrl }) {
 
   const bodyExtra = [
     `<script src="js/cms.js"></script>`,
+    (content.vsl && content.vsl.videoUrl) ? `<script src="js/player.js"></script>` : '',
     authed ? `<script src="js/editor.js"></script>` : '',
   ].filter(Boolean).join('\n');
 

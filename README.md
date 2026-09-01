@@ -92,7 +92,7 @@ Em `js/main.js` (`TK_CONFIG`):
 
 - **Depoimentos são ilustrativos** (marcados nas próprias páginas) — substituir pelos reais.
 - Links de **Instagram/Facebook** e páginas de **Termos de Uso / Política de Privacidade** apontam para `#`.
-- O botão de play do vídeo (VSL) abre o WhatsApp; trocar pelo vídeo real quando existir.
+- O vídeo da seção "Conheça a Tuck Kids" usa o Smart Player próprio (estilo VTurb): configure em ⚙️ → 🎬 Vídeo (upload .mp4 ou URL); sem vídeo configurado, a seção mostra a imagem com botão de WhatsApp.
 
 ## Dados cadastrais (nos rodapés)
 

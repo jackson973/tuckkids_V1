@@ -124,11 +124,16 @@ app.get('/api/content', auth.requireAuth, async (req, res, next) => {
 });
 
 app.put('/api/content', auth.requireAuth, async (req, res, next) => {
+  let patched;
   try {
-    const { content, resumo } = await contentStore.applyPatch(req.body || {});
-    await audit.record(req.user, 'conteudo_alterado', resumo);
-    const publicando = await triggerDeploy(req.user, `automática após salvar (${resumo})`);
-    res.json({ ok: true, content, publicando });
+    patched = await contentStore.applyPatch(req.body || {});
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+  try {
+    await audit.record(req.user, 'conteudo_alterado', patched.resumo);
+    const publicando = await triggerDeploy(req.user, `automática após salvar (${patched.resumo})`);
+    res.json({ ok: true, content: patched.content, publicando });
   } catch (e) { next(e); }
 });
 
@@ -154,6 +159,59 @@ app.post('/api/upload', auth.requireAuth, upload.single('imagem'), async (req, r
     await audit.record(req.user, 'imagem_enviada', `${req.file.originalname} (${Math.round(req.file.size / 1024)}KB) → ${p}`);
     res.json({ path: p });
   } catch (e) { next(e); }
+});
+
+// ---------- upload de vídeo da VSL ----------
+// Na Vercel as funções limitam o corpo a ~4,5MB: o vídeo sobe DIRETO do
+// navegador para o Blob (client upload) e esta rota só emite o token.
+// Em dev/VPS (disco) recebe o arquivo via multipart normal.
+const videoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      fs.mkdirSync(store.UPLOADS_DIR, { recursive: true });
+      cb(null, store.UPLOADS_DIR);
+    },
+    filename: (req, file, cb) => {
+      const ext = (path.extname(file.originalname || '') || '.mp4').toLowerCase().slice(0, 8);
+      cb(null, `${Date.now()}-video${ext}`);
+    },
+  }),
+  limits: { fileSize: 300 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => cb(null, /^video\/(mp4|webm)$/.test(file.mimetype)),
+});
+
+app.get('/api/video-upload', auth.requireAuth, (req, res) => {
+  res.json({ mode: store.useBlob ? 'blob' : 'disk' });
+});
+
+app.post('/api/video-upload', auth.requireAuth, (req, res, next) => {
+  if (!store.useBlob) {
+    return videoUpload.single('video')(req, res, async (err) => {
+      try {
+        if (err || !req.file) return res.status(400).json({ error: 'vídeo inválido (mp4/webm, máx. 300MB)' });
+        await audit.record(req.user, 'video_enviado', `${req.file.originalname} (${Math.round(req.file.size / 1048576)}MB)`);
+        res.json({ url: `uploads/${req.file.filename}` });
+      } catch (e) { next(e); }
+    });
+  }
+  (async () => {
+    const { handleUpload } = require('@vercel/blob/client');
+    const user = req.user;
+    const jsonResponse = await handleUpload({
+      body: req.body,
+      request: req,
+      onBeforeGenerateToken: async (pathname) => {
+        await audit.record(user, 'video_enviado', pathname);
+        return {
+          allowedContentTypes: ['video/mp4', 'video/webm'],
+          maximumSizeInBytes: 500 * 1024 * 1024,
+          addRandomSuffix: true,
+        };
+      },
+      onUploadCompleted: async () => {},
+    });
+    res.json(jsonResponse);
+  })().catch(next);
 });
 
 // ---------- gestão de usuários (somente admin) ----------

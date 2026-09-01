@@ -178,6 +178,7 @@
         try { sessionStorage.setItem('tk_unlock', '1'); } catch (_) {}
         document.documentElement.style.overflow = '';
         ov.remove();
+        document.dispatchEvent(new CustomEvent('tk:unlock'));
       } else {
         input.value = '';
         input.classList.add('tk-l-erro');

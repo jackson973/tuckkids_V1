@@ -86,6 +86,31 @@ async function applyPatch(patch) {
     }
   }
 
+  if (patch.vsl && typeof patch.vsl === 'object') {
+    next.vsl = { ...(cur.vsl || {}) };
+    const mudados = [];
+    const p = patch.vsl;
+    if (typeof p.videoUrl === 'string') {
+      const v = p.videoUrl.trim();
+      const ok = v === '' ||
+        /^https:\/\/[\w.-]+\/[^\s"']+\.(mp4|webm)(\?[^\s"']*)?$/i.test(v) ||
+        /^https:\/\/[\w-]+\.public\.blob\.vercel-storage\.com\/[^\s"']+$/i.test(v) ||
+        /^uploads\/[\w .-]+\.(mp4|webm)$/i.test(v);
+      if (!ok) throw new Error('URL de vídeo inválida (use um link https terminando em .mp4/.webm ou envie pelo painel)');
+      if (v !== cur.vsl.videoUrl) { next.vsl.videoUrl = v; mudados.push('videoUrl'); }
+    }
+    if (typeof p.autoplay === 'string' && ['on', 'off'].includes(p.autoplay) && p.autoplay !== cur.vsl.autoplay) {
+      next.vsl.autoplay = p.autoplay; mudados.push('autoplay');
+    }
+    if (typeof p.pitchSegundos === 'string' && /^\d{0,4}$/.test(p.pitchSegundos.trim()) && p.pitchSegundos.trim() !== cur.vsl.pitchSegundos) {
+      next.vsl.pitchSegundos = p.pitchSegundos.trim(); mudados.push('pitchSegundos');
+    }
+    if (typeof p.ctaTexto === 'string' && p.ctaTexto.slice(0, 120) !== cur.vsl.ctaTexto) {
+      next.vsl.ctaTexto = p.ctaTexto.slice(0, 120); mudados.push('ctaTexto');
+    }
+    if (mudados.length) resumo.push(`vídeo: ${mudados.join(', ')}`);
+  }
+
   if (patch.secoes && typeof patch.secoes === 'object') {
     next.secoes = { ...(cur.secoes || {}) };
     for (const layout of LAYOUTS) {
