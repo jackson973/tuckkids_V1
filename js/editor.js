@@ -55,6 +55,10 @@
     section[data-tk-oculta]::before { content: '🙈 Seção oculta no site publicado'; position: absolute; top: 10px; left: 50%;
       transform: translateX(-50%); z-index: 30; background: #7778B7; color: #fff; font: 700 12.5px 'Nunito Sans', sans-serif;
       padding: 7px 16px; border-radius: 999px; white-space: nowrap; }
+    #tk-img-dica { position: fixed; z-index: 100002; background: ${NAVY}; color: ${CREAM}; border-radius: 12px; padding: 9px 13px;
+      font: 700 12.5px/1.45 'Nunito Sans', sans-serif; box-shadow: 0 8px 24px rgba(16,27,77,.35); pointer-events: none; display: none; max-width: 320px; }
+    #tk-img-dica b { color: #FFB52E; }
+    #tk-img-dica small { display: block; font-weight: 600; opacity: .8; font-size: 11.5px; margin-top: 3px; }
     #tk-toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); z-index: 100001; background: ${NAVY};
       color: ${CREAM}; border-radius: 999px; padding: 12px 22px; font: 700 14px 'Nunito Sans', sans-serif; display: none; }
   `;
@@ -137,13 +141,53 @@
     return ['H1', 'H2', 'H3', 'P', 'A', 'DIV', 'SPAN', 'BUTTON', 'LI'].includes(el.tagName);
   }
 
+  // ---------- dica de tamanho ideal da imagem ----------
+  // O espaço de cada foto é fixo no layout; a imagem enviada é encaixada nele
+  // (img-cover corta as sobras, img-contain mostra inteira). A dica mostra o
+  // tamanho/proporção do espaço, em pixels dobrados (nitidez em telas retina).
+  const dica = document.createElement('div');
+  dica.id = 'tk-img-dica';
+  document.body.appendChild(dica);
+
+  const PROPORCOES = [[16, 9], [16, 10], [4, 3], [3, 2], [1, 1], [4, 5], [3, 4], [2, 3], [9, 16], [21, 9], [5, 4], [2, 1], [3, 1]];
+  function proporcaoDe(w, h) {
+    const r = w / h;
+    let melhor = null;
+    for (const [a, b] of PROPORCOES) {
+      const d = Math.abs(a / b - r) / r;
+      if (d < 0.04 && (!melhor || d < melhor.d)) melhor = { a, b, d };
+    }
+    return melhor ? `${melhor.a}:${melhor.b}` : `${(r).toFixed(2)}:1`;
+  }
+  function infoImagem(img) {
+    const r = img.getBoundingClientRect();
+    const w = Math.round(r.width), h = Math.round(r.height);
+    if (!w || !h) return null;
+    const contain = img.classList.contains('img-contain');
+    const autoH = !img.classList.contains('img-cover') && !contain; // ex.: logo (altura fixa, largura livre)
+    return { w, h, ideal: [w * 2, h * 2], proporcao: proporcaoDe(w, h), contain, autoH };
+  }
+  function mostrarDica(img) {
+    const i = infoImagem(img);
+    if (!i) return;
+    dica.innerHTML = i.autoH
+      ? `📐 Altura do espaço: <b>${i.h}px</b> (largura livre)<small>Envie com pelo menos ${i.ideal[1]}px de altura.</small>`
+      : `📐 Tamanho ideal: <b>${i.ideal[0]} × ${i.ideal[1]} px</b> · proporção <b>${i.proporcao}</b>` +
+        `<small>${i.contain ? 'A foto aparece inteira; com outra proporção sobra fundo nas laterais.' : 'A foto preenche o espaço; com outra proporção as bordas são cortadas.'} Medido no tamanho atual da tela.</small>`;
+    const r = img.getBoundingClientRect();
+    dica.style.display = 'block';
+    dica.style.left = Math.max(8, Math.min(window.innerWidth - dica.offsetWidth - 8, r.left + 10)) + 'px';
+    dica.style.top = Math.max(BAR + 6, Math.min(window.innerHeight - dica.offsetHeight - 8, r.top + 10)) + 'px';
+  }
+
   document.addEventListener('mouseover', (e) => {
     const el = e.target;
-    if (el.tagName === 'IMG' && !inEditorUI(el)) { el.classList.add('tk-img-hover'); return; }
+    if (el.tagName === 'IMG' && !inEditorUI(el)) { el.classList.add('tk-img-hover'); mostrarDica(el); return; }
     if (isEditableText(el)) el.classList.add('tk-editable-hover');
   });
   document.addEventListener('mouseout', (e) => {
     e.target.classList && (e.target.classList.remove('tk-editable-hover'), e.target.classList.remove('tk-img-hover'));
+    if (e.target.tagName === 'IMG') dica.style.display = 'none';
   });
 
   document.addEventListener('click', (e) => {
@@ -202,9 +246,36 @@
     fileInput.click();
   }
 
+  function dimensoesDoArquivo(file) {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const im = new Image();
+      im.onload = () => { resolve({ w: im.naturalWidth, h: im.naturalHeight }); URL.revokeObjectURL(url); };
+      im.onerror = () => resolve(null);
+      im.src = url;
+    });
+  }
+  // Aviso quando a foto enviada não combina com o espaço (será cortada / sobrará fundo)
+  function avisoProporcao(img, dim) {
+    const i = infoImagem(img);
+    if (!i || !dim || i.autoH) return '';
+    const rFoto = dim.w / dim.h, rEspaco = i.w / i.h;
+    const dif = Math.abs(rFoto - rEspaco) / rEspaco;
+    const pequena = dim.w < i.w || dim.h < i.h;
+    const partes = [];
+    if (dif > 0.08) {
+      partes.push(i.contain
+        ? `a foto (${proporcaoDe(dim.w, dim.h)}) tem proporção diferente do espaço (${i.proporcao}) — vai sobrar fundo`
+        : `a foto (${proporcaoDe(dim.w, dim.h)}) tem proporção diferente do espaço (${i.proporcao}) — as bordas serão cortadas`);
+    }
+    if (pequena) partes.push(`a foto tem ${dim.w}×${dim.h}px, menor que o espaço (${i.w}×${i.h}px) — pode ficar borrada`);
+    return partes.length ? `⚠️ ${partes.join('; ')}. Ideal: ${i.ideal[0]}×${i.ideal[1]}px.` : '';
+  }
+
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files[0];
     if (!file || !imgTarget) return;
+    const aviso = avisoProporcao(imgTarget, await dimensoesDoArquivo(file));
     showToast('Enviando imagem…', 10000);
     const fd = new FormData();
     fd.append('imagem', file);
@@ -217,7 +288,7 @@
       imgTarget.setAttribute('src', j.path);
       pending.imagens[key] = j.path;
       refreshSave();
-      showToast('Imagem trocada — não esqueça de salvar');
+      showToast(aviso ? aviso + ' Imagem trocada — não esqueça de salvar.' : 'Imagem trocada — não esqueça de salvar', aviso ? 9000 : 2400);
     } catch (err) {
       showToast('Erro: ' + err.message);
     }
