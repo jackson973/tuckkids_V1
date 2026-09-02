@@ -8,3 +8,6 @@ data/uploads/
 data/admin.json
 data/secret.key
 .env
+
+# Build da Vercel (gerado a cada deploy)
+dist/

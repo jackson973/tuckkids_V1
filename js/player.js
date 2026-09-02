@@ -204,10 +204,30 @@
         if (video.currentTime - lastSave > 2) { lastSave = video.currentTime; save('pos', Math.floor(video.currentTime)); }
       }
     });
+    // Fim do vídeo (padrão VTurb/ThumbSniper): nada de tela preta —
+    // exibe a capa com o CTA em destaque + opção de rever
+    function overlayFinal() {
+      clearOverlays();
+      const ov = overlay(
+        `${poster ? `<div style="position:absolute;inset:0;background:url('${poster}') center/cover no-repeat"></div>` : ''}
+        <div style="position:absolute;inset:0;background:rgba(16,27,77,.75)"></div>
+        <div style="position:relative;text-align:center;z-index:2;padding:20px">
+          <a class="tkp-cta" href="${waHref()}" data-wa="catalogo" target="_blank" rel="noopener">${(vsl.ctaTexto || 'Quero o catálogo agora').replace(/[<>]/g, '')}</a>
+          <div class="tkp-sub"><button class="tkp-btn2" type="button" data-acao="replay">↺&nbsp; Assistir novamente</button></div>
+        </div>`
+      );
+      ov.querySelector('[data-acao="replay"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        track('vsl_replay');
+        ativar(0);
+      });
+    }
+
     video.addEventListener('ended', () => {
       if (ativo) track('vsl_complete');
       save('pos', 0);
       bar.style.width = '100%';
+      overlayFinal();
     });
 
     // ---------- início ----------
