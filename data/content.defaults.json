@@ -31,6 +31,7 @@
     "videoUrl": "",
     "autoplay": "on",
     "pitchSegundos": "",
-    "ctaTexto": "Quero o catálogo agora"
+    "ctaTexto": "Quero o catálogo agora",
+    "videoUrlMobile": ""
   }
 }

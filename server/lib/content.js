@@ -104,14 +104,16 @@ async function applyPatch(patch) {
     next.vsl = { ...(cur.vsl || {}) };
     const mudados = [];
     const p = patch.vsl;
-    if (typeof p.videoUrl === 'string') {
-      const v = p.videoUrl.trim();
-      const ok = v === '' ||
-        /^https:\/\/[\w.-]+\/[^\s"']+\.(mp4|webm)(\?[^\s"']*)?$/i.test(v) ||
-        /^https:\/\/[\w-]+\.public\.blob\.vercel-storage\.com\/[^\s"']+$/i.test(v) ||
-        /^uploads\/[\w .-]+\.(mp4|webm)$/i.test(v);
-      if (!ok) throw new Error('URL de vídeo inválida (use um link https terminando em .mp4/.webm ou envie pelo painel)');
-      if (v !== cur.vsl.videoUrl) { next.vsl.videoUrl = v; mudados.push('videoUrl'); }
+    const urlVideoOk = (v) => v === '' ||
+      /^https:\/\/[\w.-]+\/[^\s"']+\.(mp4|webm)(\?[^\s"']*)?$/i.test(v) ||
+      /^https:\/\/[\w-]+\.public\.blob\.vercel-storage\.com\/[^\s"']+$/i.test(v) ||
+      /^uploads\/[\w .-]+\.(mp4|webm)$/i.test(v);
+    for (const campo of ['videoUrl', 'videoUrlMobile']) {
+      if (typeof p[campo] === 'string') {
+        const v = p[campo].trim();
+        if (!urlVideoOk(v)) throw new Error('URL de vídeo inválida (use um link https terminando em .mp4/.webm ou envie pelo painel)');
+        if (v !== cur.vsl[campo]) { next.vsl[campo] = v; mudados.push(campo); }
+      }
     }
     if (typeof p.autoplay === 'string' && ['on', 'off'].includes(p.autoplay) && p.autoplay !== cur.vsl.autoplay) {
       next.vsl.autoplay = p.autoplay; mudados.push('autoplay');

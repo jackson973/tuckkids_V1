@@ -210,8 +210,10 @@
     ['input', 'config.facebook', 'Link do Facebook', 'https://facebook.com/...'],
     ['h3', '🎬 Vídeo — "Conheça a Tuck Kids"'],
     ['help', 'Player inteligente estilo VSL: o vídeo começa sozinho e sem som ("clique para ativar o som"), a barra de progresso corre acelerada no início, não dá para arrastar/pular, quem sai e volta pode continuar de onde parou, e um botão de WhatsApp pode aparecer no momento do pitch. Envie um arquivo .mp4 ou cole a URL. Vazio = a seção continua com a imagem atual.'],
-    ['video-upload'],
-    ['input', 'vsl.videoUrl', 'URL do vídeo (.mp4/.webm)', 'preenchida automaticamente ao enviar'],
+    ['video-upload', 'vsl.videoUrl', '📤 Enviar vídeo (desktop · 16:9)'],
+    ['input', 'vsl.videoUrl', 'URL do vídeo — desktop (.mp4/.webm)', 'preenchida automaticamente ao enviar'],
+    ['video-upload', 'vsl.videoUrlMobile', '📱 Enviar vídeo do celular (vertical · 9:16)'],
+    ['input', 'vsl.videoUrlMobile', 'URL do vídeo — celular (opcional)', 'vazio = celular usa o mesmo vídeo do desktop'],
     ['select', 'vsl.autoplay', 'Começar sozinho, sem som (Smart Autoplay)', ['on', 'off']],
     ['input', 'vsl.pitchSegundos', 'Liberar botão de WhatsApp após (segundos)', 'vazio = não mostrar o botão'],
     ['input', 'vsl.ctaTexto', 'Texto do botão do pitch', 'ex.: Quero o catálogo agora'],
@@ -236,10 +238,11 @@
     if (kind === 'h3') return `<h3>${a}</h3>`;
     if (kind === 'help') return `<p class="tk-help">${a}</p>`;
     if (kind === 'video-upload') {
+      const uid = a.replace('.', '-');
       return `<div style="display:flex;align-items:center;gap:10px;margin:10px 0 4px">
-        <button type="button" id="tk-video-btn" style="border:0;border-radius:999px;padding:10px 18px;background:#4F9993;color:#fff;font:700 13.5px 'Nunito Sans',sans-serif;cursor:pointer">📤 Enviar vídeo</button>
-        <span id="tk-video-status" style="font-size:12.5px;font-weight:700;color:rgba(16,27,77,.55)"></span>
-        <input type="file" id="tk-video-file" accept="video/mp4,video/webm" style="display:none"></div>`;
+        <button type="button" class="tk-video-btn" data-target="${a}" style="border:0;border-radius:999px;padding:10px 18px;background:#4F9993;color:#fff;font:700 13.5px 'Nunito Sans',sans-serif;cursor:pointer">${b}</button>
+        <span id="tk-video-status-${uid}" style="font-size:12.5px;font-weight:700;color:rgba(16,27,77,.55)"></span>
+        <input type="file" class="tk-video-file" data-target="${a}" accept="video/mp4,video/webm" style="display:none"></div>`;
     }
     const id = 'tk-f-' + a.replace('.', '-');
     if (kind === 'select') {
@@ -252,17 +255,20 @@
 
   // upload de vídeo: client upload direto ao Blob (produção) ou multipart (dev)
   panel.addEventListener('click', (e) => {
-    if (e.target && e.target.id === 'tk-video-btn') panel.querySelector('#tk-video-file').click();
+    const btn = e.target.closest && e.target.closest('.tk-video-btn');
+    if (btn) panel.querySelector(`.tk-video-file[data-target="${btn.dataset.target}"]`).click();
   });
   panel.addEventListener('change', async (e) => {
-    if (!e.target || e.target.id !== 'tk-video-file') return;
+    if (!e.target || !e.target.classList || !e.target.classList.contains('tk-video-file')) return;
+    const alvo = e.target.dataset.target;               // ex.: vsl.videoUrlMobile
+    const chave = alvo.split('.')[1];
     const file = e.target.files[0];
     if (!file) return;
-    const status = panel.querySelector('#tk-video-status');
+    const status = panel.querySelector('#tk-video-status-' + alvo.replace('.', '-'));
     const setUrl = (url) => {
-      const campo = panel.querySelector('#tk-f-vsl-videoUrl');
+      const campo = panel.querySelector('#tk-f-' + alvo.replace('.', '-'));
       campo.value = url;
-      pending.vsl.videoUrl = url;
+      pending.vsl[chave] = url;
       refreshSave();
       status.textContent = '✅ vídeo pronto — clique em Salvar';
     };

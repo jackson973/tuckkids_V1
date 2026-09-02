@@ -17,7 +17,13 @@
 
   const TK = window.__TK;
   const vsl = TK && TK.vsl;
-  if (!vsl || !vsl.videoUrl) return;
+  if (!vsl || !(vsl.videoUrl || vsl.videoUrlMobile)) return;
+
+  // Personalização por dispositivo (estilo VTurb): celular/tablet em pé
+  // recebe o vídeo vertical (9:16) quando ele estiver configurado
+  const isMobile = window.matchMedia('(max-width: 920px)').matches;
+  const SRC = (isMobile && vsl.videoUrlMobile) ? vsl.videoUrlMobile : (vsl.videoUrl || vsl.videoUrlMobile);
+  const VERTICAL = SRC === vsl.videoUrlMobile && !!vsl.videoUrlMobile && SRC !== vsl.videoUrl;
 
   const CORAL = '#FF6655', NAVY = '#101B4D', CREAM = '#FBF7EF';
 
@@ -33,7 +39,7 @@
   // chave de armazenamento por vídeo (trocou o vídeo -> zera posição)
   function storeKey() {
     let h = 0;
-    for (let i = 0; i < vsl.videoUrl.length; i++) h = (h * 31 + vsl.videoUrl.charCodeAt(i)) >>> 0;
+    for (let i = 0; i < SRC.length; i++) h = (h * 31 + SRC.charCodeAt(i)) >>> 0;
     return 'tk_vsl_' + h.toString(36);
   }
   const KEY = storeKey();
@@ -62,6 +68,12 @@
     const poster = (box.querySelector('img') || {}).src || '';
     box.innerHTML = '';
     box.style.cursor = 'pointer';
+    if (VERTICAL) {
+      box.style.aspectRatio = '9 / 16';
+      box.style.maxWidth = 'min(100%, 430px)';
+      box.style.marginLeft = 'auto';
+      box.style.marginRight = 'auto';
+    }
 
     const style = document.createElement('style');
     style.textContent = `
@@ -84,7 +96,7 @@
 
     // vídeo
     const video = document.createElement('video');
-    video.src = vsl.videoUrl;
+    video.src = SRC;
     if (poster) video.poster = poster;
     video.playsInline = true;
     video.preload = 'metadata';

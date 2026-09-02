@@ -77,7 +77,7 @@ function inject(html, { content, layout, authed, user, baseHref, siteUrl }) {
 
   const bodyExtra = [
     `<script src="js/cms.js"></script>`,
-    (content.vsl && content.vsl.videoUrl) ? `<script src="js/player.js"></script>` : '',
+    (content.vsl && (content.vsl.videoUrl || content.vsl.videoUrlMobile)) ? `<script src="js/player.js"></script>` : '',
     authed ? `<script src="js/editor.js"></script>` : '',
   ].filter(Boolean).join('\n');
 
