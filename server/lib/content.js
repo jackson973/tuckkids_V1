@@ -60,12 +60,26 @@ async function applyPatch(patch) {
   if (patch.tracking && typeof patch.tracking === 'object') {
     const allowed = ['ga4Id', 'gtmId', 'metaPixelId', 'tiktokPixelId',
       'googleSiteVerification', 'facebookDomainVerification', 'ogImage'];
+    // Tolerância a colagem: se o usuário colar a meta tag inteira
+    // (<meta ... content="CODIGO">), extrai só o código automaticamente
+    const normalizar = (k, v) => {
+      v = v.trim();
+      if (k === 'googleSiteVerification' || k === 'facebookDomainVerification') {
+        const m = v.match(/content=["']([^"']+)["']/i);
+        if (m) v = m[1].trim();
+        v = v.replace(/^["']|["']$/g, '');
+      }
+      return v.slice(0, 500);
+    };
     next.tracking = { ...cur.tracking };
     const mudados = [];
     for (const k of allowed) {
-      if (typeof patch.tracking[k] === 'string' && patch.tracking[k].trim() !== cur.tracking[k]) {
-        next.tracking[k] = patch.tracking[k].trim().slice(0, 500);
-        mudados.push(k);
+      if (typeof patch.tracking[k] === 'string') {
+        const v = normalizar(k, patch.tracking[k]);
+        if (v !== cur.tracking[k]) {
+          next.tracking[k] = v;
+          mudados.push(k);
+        }
       }
     }
     if (mudados.length) resumo.push(`rastreamento: ${mudados.join(', ')}`);
