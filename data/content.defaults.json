@@ -1,6 +1,6 @@
 {
   "config": {
-    "layoutAtivo": "v1",
+    "paginaPrincipal": "v1",
     "whatsappNumber": "5547999999999",
     "pedidoMinimo": "R$ 2.000",
     "instagram": "",
@@ -16,16 +16,26 @@
     "facebookDomainVerification": "",
     "ogImage": ""
   },
-  "textos": {
-    "v1": {},
-    "v2": {},
-    "v3": {}
+  "paginas": {
+    "v1": {
+      "nome": "Página 1",
+      "ativa": true,
+      "textos": {},
+      "imagens": {},
+      "secoes": {},
+      "estilo": {}
+    }
   },
-  "imagens": {},
-  "secoes": {
-    "v1": {},
-    "v2": {},
-    "v3": {}
+  "ab": {
+    "ativo": "off",
+    "pesos": {}
+  },
+  "origem": {
+    "google": "Olá, vim do site e gostaria de mais informações.",
+    "facebook": "Olá, gostaria de mais informações sobre a Tuck Kids.",
+    "instagram": "Olá, vi a Tuck Kids no Instagram e quero saber mais.",
+    "tiktok": "Olá, vi a Tuck Kids no TikTok e quero saber mais.",
+    "direto": "Olá!"
   },
   "vsl": {
     "videoUrl": "",

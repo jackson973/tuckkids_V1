@@ -11,3 +11,5 @@ data/secret.key
 
 # Build da Vercel (gerado a cada deploy)
 dist/
+data/users.json
+data/audit.json

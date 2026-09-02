@@ -39,41 +39,74 @@ async function triggerDeploy(user, motivo) {
 }
 
 // ---------- páginas ----------
-async function renderLayout(req, res, layout) {
-  const file = path.join(ROOT, `${layout}.html`);
-  let html;
-  try {
-    html = fs.readFileSync(file, 'utf8');
-  } catch {
-    return res.status(404).send('layout não encontrado');
+const TEMPLATE = path.join(ROOT, 'pagina.html');
+const AB_COOKIE = 'tk_ab';
+
+function cookieValue(req, nome) {
+  for (const part of (req.headers.cookie || '').split(';')) {
+    const [k, ...v] = part.trim().split('=');
+    if (k === nome) return decodeURIComponent(v.join('='));
   }
-  const [content, user] = await Promise.all([contentStore.load(), auth.userFromReq(req)]);
-  res.type('html').send(inject(html, { content, layout, authed: !!user, user }));
+  return '';
 }
 
-// Painel: edição ao vivo (sempre lê o conteúdo mais recente do store)
-app.get(['/painel', '/painel/:layout'], async (req, res, next) => {
+// Sorteio ponderado (pesos em %) — mesma lógica do middleware.js na Vercel
+function sortear(pesos) {
+  const ids = Object.keys(pesos);
+  const total = ids.reduce((s, id) => s + pesos[id], 0);
+  let r = Math.random() * total;
+  for (const id of ids) { r -= pesos[id]; if (r < 0) return id; }
+  return ids[ids.length - 1];
+}
+
+// Raiz "/": página principal ou, com o teste A/B ligado, a variante
+// sorteada — lembrada por cookie para o visitante ver sempre a mesma.
+function paginaDaRaiz(content, req, res) {
+  const ab = content.ab || {};
+  const ids = Object.keys(ab.pesos || {});
+  if (ab.ativo !== 'on' || ids.length < 2) return content.config.paginaPrincipal;
+  const lembrada = cookieValue(req, AB_COOKIE);
+  if (ids.includes(lembrada)) return lembrada;
+  const escolhida = sortear(ab.pesos);
+  res.setHeader('Set-Cookie', `${AB_COOKIE}=${escolhida}; Path=/; Max-Age=2592000; SameSite=Lax`);
+  return escolhida;
+}
+
+async function renderPagina(req, res, content, pagina, opts) {
+  const html = fs.readFileSync(TEMPLATE, 'utf8');
+  const user = await auth.userFromReq(req);
+  res.type('html').send(inject(html, { content, pagina, authed: !!user, user, ...(opts || {}) }));
+}
+
+// Painel: edição ao vivo de qualquer página (inclusive desativadas)
+app.get(['/painel', '/painel/:pagina'], async (req, res, next) => {
   try {
     const user = await auth.userFromReq(req);
     if (!user) return res.redirect('/admin');
     const content = await contentStore.load();
-    const layout = contentStore.LAYOUTS.includes(req.params.layout)
-      ? req.params.layout : content.config.layoutAtivo;
-    const html = fs.readFileSync(path.join(ROOT, `${layout}.html`), 'utf8');
-    res.type('html').send(inject(html, { content, layout, authed: true, user, baseHref: true }));
+    const pagina = content.paginas[req.params.pagina] ? req.params.pagina : content.config.paginaPrincipal;
+    const html = fs.readFileSync(TEMPLATE, 'utf8');
+    res.type('html').send(inject(html, { content, pagina, authed: true, user, baseHref: true }));
   } catch (e) { next(e); }
 });
 
-// Site dinâmico (dev/VPS; na Vercel as estáticas têm precedência)
+// Site dinâmico (dev/VPS; na Vercel as estáticas + middleware têm precedência)
 app.get('/', async (req, res, next) => {
   try {
     const content = await contentStore.load();
-    await renderLayout(req, res, content.config.layoutAtivo);
+    await renderPagina(req, res, content, paginaDaRaiz(content, req, res));
   } catch (e) { next(e); }
 });
-for (const layout of contentStore.LAYOUTS) {
-  app.get(`/${layout}.html`, (req, res, next) => renderLayout(req, res, layout).catch(next));
-}
+app.get(/^\/(v\d{1,3})\.html$/, async (req, res, next) => {
+  try {
+    const content = await contentStore.load();
+    const p = content.paginas[req.params[0]];
+    if (!p) return res.status(404).send('página não encontrada');
+    // desativada: leva para a principal sem perder os parâmetros da URL (utm)
+    if (p.ativa === false) return res.redirect(302, '/' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''));
+    await renderPagina(req, res, content, req.params[0]);
+  } catch (e) { next(e); }
+});
 
 // ---------- login ----------
 app.get('/admin', async (req, res) => {
@@ -141,6 +174,35 @@ app.put('/api/content', auth.requireAuth, async (req, res, next) => {
 app.post('/api/publish', auth.requireAuth, async (req, res, next) => {
   try {
     const publicando = await triggerDeploy(req.user, 'manual');
+    res.json({ ok: true, publicando });
+  } catch (e) { next(e); }
+});
+
+// ---------- páginas: clonar / excluir ----------
+app.post('/api/paginas/clonar', auth.requireAuth, async (req, res, next) => {
+  let r;
+  try {
+    r = await contentStore.clonar(String((req.body || {}).de || ''), (req.body || {}).nome);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+  try {
+    await audit.record(req.user, 'pagina_clonada', `${r.pagina.nome} (${r.id}) a partir de ${r.pagina.clonadaDe}`);
+    const publicando = await triggerDeploy(req.user, `automática após clonar página ${r.id}`);
+    res.json({ ok: true, id: r.id, publicando });
+  } catch (e) { next(e); }
+});
+
+app.delete('/api/paginas/:id', auth.requireAuth, async (req, res, next) => {
+  let r;
+  try {
+    r = await contentStore.excluir(req.params.id);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+  try {
+    await audit.record(req.user, 'pagina_excluida', `${r.nome} (${req.params.id})`);
+    const publicando = await triggerDeploy(req.user, `automática após excluir página ${req.params.id}`);
     res.json({ ok: true, publicando });
   } catch (e) { next(e); }
 });
@@ -248,10 +310,13 @@ app.get('/api/audit', auth.requireAdmin, async (req, res, next) => {
 
 // ---------- SEO dinâmico (dev/VPS; na Vercel são estáticos do build) ----------
 function baseUrl(req) { return `${req.protocol}://${req.get('host')}`; }
-app.get('/sitemap.xml', (req, res) => {
-  const urls = ['/', ...contentStore.LAYOUTS.map((l) => `/${l}.html`)]
-    .map((u) => `<url><loc>${baseUrl(req)}${u}</loc></url>`).join('');
-  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
+app.get('/sitemap.xml', async (req, res, next) => {
+  try {
+    const content = await contentStore.load();
+    const urls = ['/', ...contentStore.paginasAtivas(content).map((id) => `/${id}.html`)]
+      .map((u) => `<url><loc>${baseUrl(req)}${u}</loc></url>`).join('');
+    res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
+  } catch (e) { next(e); }
 });
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /painel\nSitemap: ${baseUrl(req)}/sitemap.xml\n`);

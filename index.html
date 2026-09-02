@@ -3,12 +3,13 @@
 <head>
 <meta charset="utf-8">
 <title>Tuck Kids</title>
-<!-- Página de entrada: redireciona para a versão padrão da landing (troque aqui quando o cliente aprovar) -->
-<meta http-equiv="refresh" content="0; url=v1.html">
-<link rel="canonical" href="v1.html">
+<!-- Sem servidor (ex.: abrir a pasta direto ou GitHub Pages): mostra o template.
+     Com servidor/Vercel a raiz é servida pela aplicação/build e este arquivo não é usado. -->
+<meta http-equiv="refresh" content="0; url=pagina.html">
+<link rel="canonical" href="pagina.html">
 </head>
 <body>
-<p>Redirecionando… <a href="v1.html">Ir para o site</a></p>
-<script>location.replace('v1.html');</script>
+<p>Redirecionando… <a href="pagina.html">Ir para o site</a></p>
+<script>location.replace('pagina.html' + location.search);</script>
 </body>
 </html>

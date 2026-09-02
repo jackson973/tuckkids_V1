@@ -43,13 +43,13 @@
       if (!img.dataset.tkKey) img.dataset.tkKey = img.getAttribute('src');
     });
 
-    // Overrides de texto (por layout)
+    // Overrides de texto (por página)
     for (const [key, html] of Object.entries(TK.textos || {})) {
       const el = elFor(key);
       if (el) el.innerHTML = html;
     }
 
-    // Overrides de imagem (globais — as 3 versões compartilham as fotos)
+    // Overrides de imagem (por página)
     for (const [orig, novo] of Object.entries(TK.imagens || {})) {
       document.querySelectorAll(`img[data-tk-key="${CSS.escape(orig)}"]`).forEach((img) => {
         img.setAttribute('src', novo);
@@ -71,19 +71,27 @@
     if (window.__TK_applyConfig) window.__TK_applyConfig();
   }
 
-  // Conversão principal do site: clique em qualquer botão de WhatsApp
+  // Conversão principal do site: clique em qualquer botão de WhatsApp.
+  // Leva junto a origem do visitante (Google/Facebook/Instagram/TikTok/direto),
+  // a página vista (teste A/B) e os utm do anúncio — rastreio invisível.
   function bindConversionEvents() {
     document.addEventListener('click', (e) => {
       const a = e.target.closest && e.target.closest('a[data-wa]');
       if (!a) return;
       try {
+        const TK = window.__TK || {};
+        const o = window.__TK_origem || {};
+        const extra = {
+          origem: o.origem || 'direto', pagina: TK.pagina || '',
+          utm_source: o.utm_source || '', utm_medium: o.utm_medium || '', utm_campaign: o.utm_campaign || '',
+        };
         if (typeof gtag === 'function') {
-          gtag('event', 'whatsapp_click', { event_category: 'conversao', event_label: a.dataset.wa });
-          gtag('event', 'generate_lead');
+          gtag('event', 'whatsapp_click', { event_category: 'conversao', event_label: a.dataset.wa, ...extra });
+          gtag('event', 'generate_lead', extra);
         }
-        if (typeof fbq === 'function') fbq('track', 'Contact');
-        if (window.ttq && typeof window.ttq.track === 'function') window.ttq.track('Contact');
-        if (window.dataLayer) window.dataLayer.push({ event: 'whatsapp_click', origem: a.dataset.wa });
+        if (typeof fbq === 'function') fbq('track', 'Contact', extra);
+        if (window.ttq && typeof window.ttq.track === 'function') window.ttq.track('Contact', extra);
+        if (window.dataLayer) window.dataLayer.push({ event: 'whatsapp_click', botao: a.dataset.wa, ...extra });
       } catch (_) { /* rastreamento nunca pode quebrar a navegação */ }
     }, true);
   }

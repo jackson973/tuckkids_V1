@@ -3,8 +3,10 @@
 // É disparado a cada deploy — inclusive pelos Deploy Hooks chamados
 // quando alguém salva no painel.
 //
-//   dist/index.html   → layout ativo (site principal, sem seletor de versões)
-//   dist/v1|v2|v3.html→ as três versões (com seletor, para comparação)
+//   dist/index.html    → página principal (raiz do site)
+//   dist/vN.html       → cada página criada no painel
+//                        (desativada = redireciona para a raiz)
+//   dist/ab.json       → configuração do teste A/B lida pelo middleware.js
 //   dist/assets|css|js, robots.txt, sitemap.xml
 const fs = require('fs');
 const path = require('path');
@@ -12,7 +14,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
 const contentStore = require('../server/lib/content');
-const { inject } = require('../server/lib/inject');
+const { inject, redirectHtml } = require('../server/lib/inject');
 
 function copyDir(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
@@ -32,8 +34,9 @@ function siteUrl() {
 
 (async () => {
   const content = await contentStore.load();
-  const ativo = content.config.layoutAtivo;
-  console.log(`[build] layout ativo: ${ativo} · modo lançamento: ${content.config.modoLancamento || 'off'}`);
+  const principal = content.config.paginaPrincipal;
+  const ativas = contentStore.paginasAtivas(content);
+  console.log(`[build] página principal: ${principal} · ativas: ${ativas.join(', ')} · teste A/B: ${content.ab.ativo} · modo lançamento: ${content.config.modoLancamento || 'off'}`);
 
   fs.rmSync(DIST, { recursive: true, force: true });
   fs.mkdirSync(DIST, { recursive: true });
@@ -45,18 +48,20 @@ function siteUrl() {
   // o editor só é servido pela função (/painel) — fora do site público
   fs.rmSync(path.join(DIST, 'js', 'editor.js'), { force: true });
 
-  // páginas: v1/v2/v3 com conteúdo injetado (visitante, sem editor)
-  for (const layout of contentStore.LAYOUTS) {
-    const html = fs.readFileSync(path.join(ROOT, `${layout}.html`), 'utf8');
-    fs.writeFileSync(path.join(DIST, `${layout}.html`),
-      inject(html, { content, layout, authed: false, siteUrl: siteUrl() }));
+  // páginas (visitante, sem editor)
+  const template = fs.readFileSync(path.join(ROOT, 'pagina.html'), 'utf8');
+  for (const id of contentStore.idsPaginas(content)) {
+    const ativa = content.paginas[id].ativa !== false;
+    fs.writeFileSync(path.join(DIST, `${id}.html`),
+      ativa ? inject(template, { content, pagina: id, authed: false, siteUrl: siteUrl() }) : redirectHtml());
   }
 
-  // index = layout ativo, sem o seletor de versões (site final)
-  let indexHtml = fs.readFileSync(path.join(ROOT, `${ativo}.html`), 'utf8');
-  indexHtml = indexHtml.replace(/<!-- SELETOR DE VERSOES -->[\s\S]*?<\/nav>\n?/, '');
+  // raiz = página principal (com o teste A/B ligado o middleware
+  // reescreve a raiz para a variante sorteada)
   fs.writeFileSync(path.join(DIST, 'index.html'),
-    inject(indexHtml, { content, layout: ativo, authed: false, siteUrl: siteUrl() }));
+    inject(template, { content, pagina: principal, authed: false, siteUrl: siteUrl() }));
+  fs.writeFileSync(path.join(DIST, 'ab.json'),
+    JSON.stringify({ ativo: content.ab.ativo, pesos: content.ab.pesos, principal }));
 
   // SEO
   const base = siteUrl();

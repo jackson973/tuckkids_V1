@@ -1,7 +1,9 @@
 /* ============================================================
    Tuck Kids — Editor inline (injetado apenas para admin autenticado)
    Clique num texto para editar; clique numa imagem para trocar.
-   "Salvar" grava os overrides via PUT /api/content.
+   Painéis: 📄 Páginas (clonar/ativar/excluir/principal + teste A/B),
+   🎨 Estilo da página, 🧩 Seções, ⚙️ Configurações.
+   "Salvar" grava os overrides da página aberta via PUT /api/content.
    ============================================================ */
 (function () {
   'use strict';
@@ -9,8 +11,9 @@
   if (!TK || !TK.authed) return;
 
   const keyFor = window.__TK_keyFor;
-  const pending = { textos: {}, imagens: {}, config: {}, tracking: {}, secoes: {}, vsl: {} };
+  const pending = { textos: {}, imagens: {}, secoes: {}, estilo: {}, config: {}, tracking: {}, vsl: {}, origem: {} };
   const NAVY = '#101B4D', CORAL = '#FF6655', CREAM = '#FBF7EF';
+  const PANEL_CSS = 'position:fixed;top:46px;right:0;bottom:0;width:min(400px,100vw);z-index:99999;background:#fff;box-shadow:-8px 0 30px rgba(16,27,77,.2);padding:20px 22px 40px;overflow-y:auto;display:none;font:600 14px Nunito Sans,sans-serif;color:#101B4D';
 
   // ---------- estilos do editor ----------
   const style = document.createElement('style');
@@ -19,26 +22,35 @@
     .tk-editing { outline: 2px solid ${CORAL} !important; outline-offset: 2px; background: rgba(255,102,85,.06); }
     .tk-img-hover { outline: 3px dashed ${CORAL} !important; outline-offset: -3px; cursor: pointer; filter: brightness(.92); }
     #tk-toolbar { position: fixed; top: 0; left: 0; right: 0; z-index: 100000; background: ${NAVY}; color: ${CREAM};
-      display: flex; align-items: center; gap: 12px; padding: 8px 16px; font: 700 13.5px/1 'Nunito Sans', -apple-system, sans-serif;
+      display: flex; align-items: center; gap: 10px; padding: 8px 16px; font: 700 13.5px/1 'Nunito Sans', -apple-system, sans-serif;
       box-shadow: 0 4px 16px rgba(16,27,77,.35); }
     #tk-toolbar .tk-grow { flex: 1; font-weight: 600; opacity: .85; }
-    #tk-toolbar button { border: 0; border-radius: 999px; padding: 9px 16px; font: 700 13px 'Nunito Sans', sans-serif; cursor: pointer; }
-    #tk-btn-save { background: ${CORAL}; color: #fff; }
+    #tk-toolbar button { border: 0; border-radius: 999px; padding: 9px 14px; font: 700 13px 'Nunito Sans', sans-serif; cursor: pointer;
+      background: rgba(251,247,239,.15); color: ${CREAM}; }
+    #tk-btn-save { background: ${CORAL} !important; color: #fff !important; }
     #tk-btn-save:disabled { opacity: .45; cursor: default; }
-    #tk-btn-cfg { background: rgba(251,247,239,.15); color: ${CREAM}; }
-    #tk-btn-exit { background: transparent; color: rgba(251,247,239,.7); }
-    #tk-panel { position: fixed; top: 46px; right: 0; bottom: 0; width: min(380px, 100vw); z-index: 99999; background: #fff;
-      box-shadow: -8px 0 30px rgba(16,27,77,.2); padding: 20px 22px 40px; overflow-y: auto; display: none;
-      font: 600 14px 'Nunito Sans', sans-serif; color: ${NAVY}; }
-    #tk-panel.open { display: block; }
-    #tk-panel h3 { font: 700 16px 'Nunito Sans', sans-serif; margin: 22px 0 10px; }
-    #tk-panel h3:first-child { margin-top: 0; }
-    #tk-panel label { display: block; font-size: 12.5px; font-weight: 800; margin: 12px 0 4px; color: rgba(16,27,77,.65); }
-    #tk-panel input, #tk-panel select { width: 100%; border: 1.5px solid rgba(16,27,77,.2); border-radius: 10px;
-      padding: 9px 12px; font: 600 14px 'Nunito Sans', sans-serif; color: ${NAVY}; box-sizing: border-box; }
-    #tk-panel small { display: block; color: rgba(16,27,77,.5); font-size: 11.5px; margin-top: 3px; }
-    #tk-panel .tk-help { margin: 4px 0 6px; padding: 10px 12px; background: #F6F4EF; border-radius: 10px;
+    #tk-btn-exit { background: transparent !important; color: rgba(251,247,239,.7) !important; }
+    .tk-panel { ${PANEL_CSS} }
+    .tk-panel.open { display: block; }
+    .tk-panel h3 { font: 700 16px 'Nunito Sans', sans-serif; margin: 22px 0 10px; }
+    .tk-panel h3:first-child { margin-top: 0; }
+    .tk-panel label { display: block; font-size: 12.5px; font-weight: 800; margin: 12px 0 4px; color: rgba(16,27,77,.65); }
+    .tk-panel input, .tk-panel select { width: 100%; border: 1.5px solid rgba(16,27,77,.2); border-radius: 10px;
+      padding: 9px 12px; font: 600 14px 'Nunito Sans', sans-serif; color: ${NAVY}; box-sizing: border-box; background: #fff; }
+    .tk-panel input[type=color] { height: 42px; padding: 4px 6px; cursor: pointer; }
+    .tk-panel small { display: block; color: rgba(16,27,77,.5); font-size: 11.5px; margin-top: 3px; }
+    .tk-panel .tk-help { margin: 4px 0 6px; padding: 10px 12px; background: #F6F4EF; border-radius: 10px;
       font-size: 12.5px; font-weight: 600; color: rgba(16,27,77,.65); line-height: 1.5; }
+    .tk-panel .tk-card { border: 1.5px solid rgba(16,27,77,.12); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+    .tk-panel .tk-card.tk-atual { border-color: #4F9993; box-shadow: 0 0 0 2px rgba(79,153,147,.2); }
+    .tk-panel .tk-card.tk-off { opacity: .6; background: #FAFAFA; }
+    .tk-panel .tk-tag { display: inline-block; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 3px 9px; margin-left: 4px; }
+    .tk-panel .tk-acoes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .tk-panel .tk-acoes button, .tk-panel .tk-btn { border: 0; border-radius: 999px; padding: 7px 12px; font: 700 12.5px 'Nunito Sans', sans-serif;
+      cursor: pointer; background: #EDF4F3; color: ${NAVY}; }
+    .tk-panel .tk-btn-main { background: ${CORAL}; color: #fff; width: 100%; padding: 11px; font-size: 14px; margin-top: 10px; }
+    .tk-panel .tk-btn-danger { background: #FDECEA; color: #b3261e; }
+    .tk-panel .tk-erro { color: #d0342a; font-weight: 700; font-size: 13px; min-height: 18px; margin-top: 8px; }
     section[data-tk-oculta] { position: relative; opacity: .35; outline: 3px dashed #7778B7; outline-offset: -3px; }
     section[data-tk-oculta]::before { content: '🙈 Seção oculta no site publicado'; position: absolute; top: 10px; left: 50%;
       transform: translateX(-50%); z-index: 30; background: #7778B7; color: #fff; font: 700 12.5px 'Nunito Sans', sans-serif;
@@ -54,19 +66,19 @@
   const header = document.querySelector('header');
   if (header) header.style.top = BAR + 'px';
 
+  const escHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
   // ---------- barra superior ----------
   const isAdmin = TK.user && TK.user.role === 'admin';
   const bar = document.createElement('div');
   bar.id = 'tk-toolbar';
   bar.innerHTML = `
-    <span>✏️ ${TK.user ? TK.user.nome : 'Edição'}</span>
-    <span>· Layout
-      ${['v1','v2','v3'].map((l) => l === TK.layout
-        ? `<b style="color:#FFB52E">${l.toUpperCase()}</b>`
-        : `<a href="/painel/${l}" style="color:#FBF7EF;text-decoration:underline">${l.toUpperCase()}</a>`).join(' ')}
-    </span>
+    <span>✏️ ${escHtml(TK.user ? TK.user.nome : 'Edição')}</span>
+    <span>· <b style="color:#FFB52E">${escHtml(TK.nomePagina || TK.pagina)}</b> <span style="opacity:.6">(${TK.pagina})</span></span>
     <span class="tk-grow">clique num texto para editar · numa imagem para trocar</span>
     ${isAdmin ? '<button id="tk-btn-users" type="button">👥 Usuários</button><button id="tk-btn-log" type="button">📜 Histórico</button>' : ''}
+    <button id="tk-btn-pages" type="button">📄 Páginas</button>
+    <button id="tk-btn-style" type="button">🎨 Estilo</button>
     <button id="tk-btn-sec" type="button">🧩 Seções</button>
     <button id="tk-btn-cfg" type="button">⚙️ Configurações</button>
     <button id="tk-btn-pub" type="button">🚀 Publicar</button>
@@ -86,9 +98,7 @@
 
   const btnSave = bar.querySelector('#tk-btn-save');
   function pendingCount() {
-    return Object.keys(pending.textos).length + Object.keys(pending.imagens).length +
-      Object.keys(pending.config).length + Object.keys(pending.tracking).length +
-      Object.keys(pending.secoes).length + Object.keys(pending.vsl).length;
+    return Object.values(pending).reduce((n, g) => n + Object.keys(g).length, 0);
   }
   function refreshSave() {
     const n = pendingCount();
@@ -96,8 +106,23 @@
     btnSave.textContent = n ? `💾 Salvar (${n})` : '💾 Salvar';
   }
 
+  // ---------- painéis laterais (um aberto por vez) ----------
+  const panels = {};
+  function criarPanel(id) {
+    const el = document.createElement('div');
+    el.id = id;
+    el.className = 'tk-panel';
+    document.body.appendChild(el);
+    panels[id] = el;
+    return el;
+  }
+  function togglePanel(id, onOpen) {
+    const abrir = !panels[id].classList.contains('open');
+    Object.values(panels).forEach((p) => p.classList.remove('open'));
+    if (abrir) { panels[id].classList.add('open'); if (onOpen) onOpen(); }
+  }
   function inEditorUI(el) {
-    return el.closest && (el.closest('#tk-toolbar') || el.closest('#tk-panel') || el.closest('#tk-upanel') || el.closest('#tk-lpanel') || el.closest('#tk-spanel') || el.closest('.ver-switch'));
+    return el.closest && (el.closest('#tk-toolbar') || el.closest('.tk-panel'));
   }
 
   // ---------- edição de texto ----------
@@ -198,16 +223,209 @@
     }
   });
 
+  // ---------- chamadas ao servidor ----------
+  async function api(method, url, body) {
+    const r = await fetch(url, {
+      method, headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'erro no servidor');
+    return j;
+  }
+  // grava um patch na hora (ações de página / teste A/B) e recarrega
+  async function salvarAgora(patch, msg, destino) {
+    const j = await api('PUT', '/api/content', patch);
+    showToast((msg || '✅ Salvo!') + (j.publicando ? ' Publicando o site (~1 min)…' : ''));
+    setTimeout(() => { if (destino) location.href = destino; else location.reload(); }, 900);
+  }
+
+  // ---------- painel de páginas + teste A/B ----------
+  const ppanel = criarPanel('tk-ppanel');
+
+  function renderPaginas() {
+    const paginas = TK.paginas || [];
+    const ab = TK.ab || { ativo: 'off', pesos: {} };
+    const ativas = paginas.filter((p) => p.ativa);
+    ppanel.innerHTML = `
+      <h3>📄 Páginas do site</h3>
+      <p class="tk-help">Cada página tem seu próprio endereço, textos, fotos, seções e estilo. <b>Clonar</b> cria a próxima
+        (V${Math.max(...paginas.map((p) => Number(p.id.slice(1)))) + 1}) igual à escolhida. <b>Desativar</b> tira do ar sem perder nada;
+        quem abrir o endereço dela cai na principal. <b>Excluir</b> apaga de vez.</p>
+      ${paginas.map((p) => `
+        <div class="tk-card ${p.id === TK.pagina ? 'tk-atual' : ''} ${p.ativa ? '' : 'tk-off'}">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <div><b>${escHtml(p.nome)}</b> <small style="display:inline;color:rgba(16,27,77,.5)">/${p.id}.html</small>
+              ${p.principal ? '<span class="tk-tag" style="background:#FFF1D6;color:#8a5a00">⭐ principal</span>' : ''}
+              ${p.ativa ? '' : '<span class="tk-tag" style="background:#EEE;color:#666">desativada</span>'}
+              ${p.id === TK.pagina ? '<span class="tk-tag" style="background:#E3F1EF;color:#2f6f6a">editando</span>' : ''}</div>
+          </div>
+          <div class="tk-acoes">
+            ${p.id !== TK.pagina ? `<button data-acao="abrir" data-id="${p.id}">✏️ Editar</button>` : ''}
+            ${p.ativa ? `<button data-acao="ver" data-id="${p.id}">👁 Ver no site</button>` : ''}
+            <button data-acao="clonar" data-id="${p.id}">📋 Clonar</button>
+            <button data-acao="renomear" data-id="${p.id}" data-nome="${escHtml(p.nome)}">✏️ Renomear</button>
+            ${p.principal ? '' : (p.ativa ? `<button data-acao="principal" data-id="${p.id}">⭐ Tornar principal</button>` : '')}
+            ${p.id === 'v1' || p.principal ? '' : `<button data-acao="${p.ativa ? 'desativar' : 'ativar'}" data-id="${p.id}">${p.ativa ? '🚫 Desativar' : '✅ Ativar'}</button>`}
+            ${p.id === 'v1' || p.principal ? '' : `<button data-acao="excluir" data-id="${p.id}" data-nome="${escHtml(p.nome)}" class="tk-btn-danger">🗑 Excluir</button>`}
+          </div>
+        </div>`).join('')}
+
+      <h3>🧪 Teste A/B</h3>
+      <p class="tk-help">Com o teste ligado, quem entra pelo endereço principal do site é dividido entre as páginas marcadas,
+        na proporção dos pesos, e vê sempre a mesma versão por 30 dias. Cada clique no WhatsApp registra a página vista
+        e a origem do visitante no Google Analytics e no Pixel. Precisa de pelo menos duas páginas ativas.</p>
+      <label>Teste A/B</label>
+      <select id="tk-ab-ativo"><option value="off" ${ab.ativo !== 'on' ? 'selected' : ''}>Desligado — todo mundo vê a principal</option>
+        <option value="on" ${ab.ativo === 'on' ? 'selected' : ''}>Ligado — dividir visitantes</option></select>
+      ${ativas.map((p) => `
+        <label for="tk-ab-${p.id}">${escHtml(p.nome)} <small style="display:inline">(/${p.id}.html)</small> — peso %</label>
+        <input id="tk-ab-${p.id}" type="number" min="0" max="100" data-ab="${p.id}" value="${ab.pesos[p.id] || 0}" placeholder="0 = fora do teste">`).join('')}
+      <small id="tk-ab-soma"></small>
+      <button id="tk-ab-salvar" class="tk-btn tk-btn-main">Salvar teste A/B</button>
+      <div class="tk-erro" id="tk-ab-erro"></div>`;
+
+    const soma = () => {
+      const t = Array.from(ppanel.querySelectorAll('[data-ab]')).reduce((s, i) => s + (Number(i.value) || 0), 0);
+      ppanel.querySelector('#tk-ab-soma').textContent = t ? `Soma dos pesos: ${t}% (as proporções são relativas — 50/50, 70/30…)` : '';
+    };
+    soma();
+    ppanel.querySelectorAll('[data-ab]').forEach((i) => i.addEventListener('input', soma));
+
+    ppanel.querySelector('#tk-ab-salvar').addEventListener('click', async () => {
+      const erro = ppanel.querySelector('#tk-ab-erro');
+      const pesos = {};
+      ppanel.querySelectorAll('[data-ab]').forEach((i) => { if (Number(i.value) > 0) pesos[i.dataset.ab] = Number(i.value); });
+      try {
+        await salvarAgora({ ab: { pesos, ativo: ppanel.querySelector('#tk-ab-ativo').value } }, '✅ Teste A/B salvo!');
+      } catch (e) { erro.textContent = e.message; }
+    });
+
+    ppanel.querySelectorAll('[data-acao]').forEach((btn) => btn.addEventListener('click', async () => {
+      const id = btn.dataset.id;
+      const acao = btn.dataset.acao;
+      try {
+        if (acao === 'abrir') {
+          if (pendingCount() && !confirm('Há alterações não salvas nesta página. Trocar mesmo assim?')) return;
+          location.href = '/painel/' + id;
+        } else if (acao === 'ver') {
+          window.open('/' + id + '.html', '_blank');
+        } else if (acao === 'clonar') {
+          const nome = prompt('Nome da nova página (cópia de "' + btn.closest('.tk-card').querySelector('b').textContent + '"):', '');
+          if (nome === null) return;
+          const j = await api('POST', '/api/paginas/clonar', { de: id, nome });
+          showToast('✅ Página ' + j.id.toUpperCase() + ' criada! Abrindo…');
+          setTimeout(() => { location.href = '/painel/' + j.id; }, 900);
+        } else if (acao === 'renomear') {
+          const nome = prompt('Novo nome da página:', btn.dataset.nome);
+          if (!nome || nome.trim() === btn.dataset.nome) return;
+          await salvarAgora({ paginas: { [id]: { nome: nome.trim() } } }, '✅ Página renomeada!');
+        } else if (acao === 'principal') {
+          await salvarAgora({ config: { paginaPrincipal: id } }, '✅ Página principal alterada!');
+        } else if (acao === 'desativar' || acao === 'ativar') {
+          await salvarAgora({ paginas: { [id]: { ativa: acao === 'ativar' } } }, acao === 'ativar' ? '✅ Página ativada!' : '✅ Página desativada (nada foi perdido).');
+        } else if (acao === 'excluir') {
+          if (!confirm('Excluir DE VEZ a página "' + btn.dataset.nome + '" (/' + id + '.html)?\nTextos, fotos e estilo dela serão apagados. Se quiser só tirar do ar, use Desativar.')) return;
+          const j = await api('DELETE', '/api/paginas/' + id);
+          showToast('🗑 Página excluída.' + (j.publicando ? ' Publicando…' : ''));
+          setTimeout(() => { location.href = id === TK.pagina ? '/painel' : location.href; location.reload(); }, 900);
+        }
+      } catch (e) { showToast('Erro: ' + e.message, 4000); }
+    }));
+  }
+  bar.querySelector('#tk-btn-pages').addEventListener('click', () => togglePanel('tk-ppanel', renderPaginas));
+
+  // ---------- painel de estilo (por página, com prévia ao vivo) ----------
+  const epanel = criarPanel('tk-epanel');
+  const FONTES_CSS = { 'Baloo 2': 'css/fonts-baloo.css', 'Manrope': 'css/fonts-manrope.css' };
+  let estiloAtual = { ...(TK.estiloPadrao || {}), ...(TK.estilo || {}) };
+
+  function rgbDe(hex) { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+  function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  // Troca, em todos os estilos inline e no CSS embutido, o valor atual pelo novo
+  function substituirNaPagina(fn) {
+    document.querySelectorAll('[style]').forEach((el) => {
+      if (inEditorUI(el)) return;
+      const v = el.getAttribute('style');
+      const n = fn(v);
+      if (n !== v) el.setAttribute('style', n);
+    });
+    const css = document.getElementById('tk-css');
+    if (css) css.textContent = fn(css.textContent);
+  }
+
+  function previewEstilo(novo) {
+    for (const k of ['corPrincipal', 'corEscura', 'corFundo']) {
+      const de = estiloAtual[k], para = (novo[k] || de).toUpperCase();
+      if (!de || para === de.toUpperCase()) continue;
+      const [r, g, b] = rgbDe(de), [nr, ng, nb] = rgbDe(para);
+      const reHex = new RegExp(escRe(de), 'gi');
+      const reRgba = new RegExp(`rgba\\(\\s*${r}\\s*,\\s*${g}\\s*,\\s*${b}\\s*,`, 'g');
+      substituirNaPagina((s) => s.replace(reHex, para).replace(reRgba, `rgba(${nr},${ng},${nb},`));
+    }
+    if (novo.fonteTitulos && novo.fonteTitulos !== estiloAtual.fonteTitulos) {
+      if (FONTES_CSS[novo.fonteTitulos] && !document.querySelector(`link[href="${FONTES_CSS[novo.fonteTitulos]}"]`)) {
+        const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = FONTES_CSS[novo.fonteTitulos];
+        document.head.appendChild(l);
+      }
+      const re = new RegExp(`'${escRe(estiloAtual.fonteTitulos)}'`, 'g');
+      substituirNaPagina((s) => s.replace(re, `'${novo.fonteTitulos}'`));
+    }
+    if (novo.botoes && novo.botoes !== estiloAtual.botoes) {
+      const de = estiloAtual.botoes === 'reto' ? '8px' : '999px', para = novo.botoes === 'reto' ? '8px' : '999px';
+      substituirNaPagina((s) => s.replace(new RegExp('border-radius:\\s*' + de, 'g'), 'border-radius:' + para));
+    }
+    estiloAtual = { ...estiloAtual, ...novo };
+  }
+
+  function renderEstilo() {
+    const e = estiloAtual;
+    const opt = (v, cur, label) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label || v}</option>`;
+    epanel.innerHTML = `
+      <h3>🎨 Estilo da página "${escHtml(TK.nomePagina || TK.pagina)}"</h3>
+      <p class="tk-help">Vale só para esta página — as outras continuam como estão. A prévia aparece na hora; clique em <b>Salvar</b> para gravar.</p>
+      <label>Cor principal (botões e destaques)</label><input type="color" data-estilo="corPrincipal" value="${e.corPrincipal}">
+      <label>Cor escura (títulos, menu e rodapé)</label><input type="color" data-estilo="corEscura" value="${e.corEscura}">
+      <label>Cor de fundo</label><input type="color" data-estilo="corFundo" value="${e.corFundo}">
+      <label>Fonte dos títulos</label>
+      <select data-estilo="fonteTitulos">${opt('Poppins', e.fonteTitulos, 'Poppins — suave e clássica')}${opt('Baloo 2', e.fonteTitulos, 'Baloo 2 — lúdica e arredondada')}${opt('Manrope', e.fonteTitulos, 'Manrope — moderna e corporativa')}</select>
+      <label>Formato dos botões</label>
+      <select data-estilo="botoes">${opt('arredondado', e.botoes, 'Arredondado (pílula)')}${opt('reto', e.botoes, 'Reto (cantos levemente arredondados)')}</select>
+      <button id="tk-estilo-reset" class="tk-btn" style="margin-top:16px">↩︎ Voltar ao padrão</button>`;
+    epanel.querySelectorAll('[data-estilo]').forEach((f) => f.addEventListener('input', () => {
+      const k = f.dataset.estilo;
+      const v = f.type === 'color' ? f.value.toUpperCase() : f.value;
+      previewEstilo({ [k]: v });
+      pending.estilo[k] = v;
+      refreshSave();
+    }));
+    epanel.querySelector('#tk-estilo-reset').addEventListener('click', () => {
+      const padrao = TK.estiloPadrao || {};
+      previewEstilo(padrao);
+      for (const k of Object.keys(padrao)) pending.estilo[k] = padrao[k];
+      refreshSave();
+      renderEstilo();
+    });
+  }
+  bar.querySelector('#tk-btn-style').addEventListener('click', () => togglePanel('tk-epanel', renderEstilo));
+
   // ---------- painel de configurações ----------
   const CFG_FIELDS = [
     ['h3', 'Site'],
-    ['help', 'Configurações gerais. Tudo que você salvar aqui vale para o site publicado após a próxima publicação.'],
-    ['select', 'config.layoutAtivo', 'Layout ativo (página inicial)', ['v1', 'v2', 'v3']],
+    ['help', 'Configurações gerais. Tudo que você salvar aqui vale para todas as páginas, após a próxima publicação. A página principal e o teste A/B ficam em 📄 Páginas.'],
     ['select', 'config.modoLancamento', 'Modo lançamento — "on" mostra só a tela "Em breve" com senha; "off" abre o site ao público', ['on', 'off']],
     ['input', 'config.whatsappNumber', 'WhatsApp (55 + DDD + número)', 'ex.: 5547999999999'],
     ['input', 'config.pedidoMinimo', 'Pedido mínimo (frete grátis)', 'ex.: R$ 2.000'],
     ['input', 'config.instagram', 'Link do Instagram', 'https://instagram.com/...'],
     ['input', 'config.facebook', 'Link do Facebook', 'https://facebook.com/...'],
+    ['h3', '💬 Mensagem do WhatsApp por origem'],
+    ['help', 'O site descobre de onde o visitante veio (pelo utm_source do anúncio, pelo id de clique ou pelo site de origem) e começa a mensagem do WhatsApp com a frase da origem, seguida do que o botão pede (ex.: "Quero receber o catálogo Tuck Kids."). A primeira origem fica guardada por 30 dias. Nos anúncios do Meta use utm_source={{site_source_name}} para separar Facebook de Instagram.'],
+    ['input', 'origem.google', 'Veio do Google (anúncio ou busca)', 'ex.: Olá, vim do site e gostaria de mais informações.'],
+    ['input', 'origem.facebook', 'Veio do Facebook', 'ex.: Olá, gostaria de mais informações sobre a Tuck Kids.'],
+    ['input', 'origem.instagram', 'Veio do Instagram', ''],
+    ['input', 'origem.tiktok', 'Veio do TikTok', ''],
+    ['input', 'origem.direto', 'Origem desconhecida / digitou o endereço', 'ex.: Olá!'],
     ['h3', '🎬 Vídeo — "Conheça a Tuck Kids"'],
     ['help', 'Player inteligente estilo VSL: o vídeo começa sozinho e sem som ("clique para ativar o som"), a barra de progresso corre acelerada no início, não dá para arrastar/pular, quem sai e volta pode continuar de onde parou, e um botão de WhatsApp pode aparecer no momento do pitch. Envie um arquivo .mp4 ou cole a URL. Vazio = a seção continua com a imagem atual.'],
     ['video-upload', 'vsl.videoUrl', '📤 Enviar vídeo (desktop · 16:9)'],
@@ -218,7 +436,7 @@
     ['input', 'vsl.pitchSegundos', 'Liberar botão de WhatsApp após (segundos)', 'vazio = não mostrar o botão'],
     ['input', 'vsl.ctaTexto', 'Texto do botão do pitch', 'ex.: Quero o catálogo agora'],
     ['h3', 'Rastreamento e anúncios'],
-    ['help', 'Cole os IDs fornecidos pelas plataformas. Com eles preenchidos, os códigos de medição são instalados sozinhos no site e cada clique nos botões de WhatsApp é contado como conversão (evento Contact/generate_lead).'],
+    ['help', 'Cole os IDs fornecidos pelas plataformas. Com eles preenchidos, os códigos de medição são instalados sozinhos no site e cada clique nos botões de WhatsApp é contado como conversão (evento Contact/generate_lead), levando junto a origem do visitante e a página vista.'],
     ['input', 'tracking.metaPixelId', 'Meta Pixel ID (Facebook/Instagram Ads)', 'somente números'],
     ['input', 'tracking.ga4Id', 'Google Analytics 4 (G-XXXXXXX)', ''],
     ['input', 'tracking.gtmId', 'Google Tag Manager (GTM-XXXXXX) — opcional', ''],
@@ -232,8 +450,7 @@
     ['input', 'tracking.ogImage', 'Imagem de compartilhamento — opcional', 'vazio = cartão padrão com a logo'],
   ];
 
-  const panel = document.createElement('div');
-  panel.id = 'tk-panel';
+  const panel = criarPanel('tk-panel');
   panel.innerHTML = CFG_FIELDS.map(([kind, a, b, c]) => {
     if (kind === 'h3') return `<h3>${a}</h3>`;
     if (kind === 'help') return `<p class="tk-help">${a}</p>`;
@@ -251,7 +468,6 @@
     return `<label for="${id}">${b}</label><input id="${id}" data-path="${a}" placeholder="${c || ''}">` +
       (c ? `<small>${c}</small>` : '');
   }).join('');
-  document.body.appendChild(panel);
 
   // upload de vídeo: client upload direto ao Blob (produção) ou multipart (dev)
   panel.addEventListener('click', (e) => {
@@ -299,17 +515,15 @@
   });
 
   let cfgLoaded = false;
-  async function openPanel() {
-    if (!cfgLoaded) {
-      const r = await fetch('/api/content');
-      const content = await r.json();
-      panel.querySelectorAll('[data-path]').forEach((f) => {
-        const [group, key] = f.dataset.path.split('.');
-        f.value = (content[group] && content[group][key]) || '';
-      });
-      cfgLoaded = true;
-    }
-    panel.classList.add('open');
+  async function carregarCfg() {
+    if (cfgLoaded) return;
+    const r = await fetch('/api/content');
+    const content = await r.json();
+    panel.querySelectorAll('[data-path]').forEach((f) => {
+      const [group, key] = f.dataset.path.split('.');
+      f.value = (content[group] && content[group][key]) || '';
+    });
+    cfgLoaded = true;
   }
 
   panel.addEventListener('change', (e) => {
@@ -320,33 +534,23 @@
     refreshSave();
   });
 
-  bar.querySelector('#tk-btn-cfg').addEventListener('click', () => {
-    upanel.style.display = 'none';
-    lpanel.style.display = 'none';
-    spanel.style.display = 'none';
-    if (panel.classList.contains('open')) panel.classList.remove('open');
-    else openPanel();
-  });
+  bar.querySelector('#tk-btn-cfg').addEventListener('click', () => togglePanel('tk-panel', carregarCfg));
 
   // ---------- salvar / sair ----------
   btnSave.addEventListener('click', async () => {
     const patch = {};
-    if (Object.keys(pending.textos).length) patch.textos = { [TK.layout]: pending.textos };
-    if (Object.keys(pending.imagens).length) patch.imagens = pending.imagens;
-    if (Object.keys(pending.secoes).length) patch.secoes = { [TK.layout]: pending.secoes };
-    if (Object.keys(pending.vsl).length) patch.vsl = pending.vsl;
-    if (Object.keys(pending.config).length) patch.config = pending.config;
-    if (Object.keys(pending.tracking).length) patch.tracking = pending.tracking;
+    const pg = {};
+    for (const k of ['textos', 'imagens', 'secoes', 'estilo']) {
+      if (Object.keys(pending[k]).length) pg[k] = pending[k];
+    }
+    if (Object.keys(pg).length) patch.paginas = { [TK.pagina]: pg };
+    for (const k of ['vsl', 'config', 'tracking', 'origem']) {
+      if (Object.keys(pending[k]).length) patch[k] = pending[k];
+    }
     btnSave.disabled = true;
     btnSave.textContent = 'Salvando…';
     try {
-      const r = await fetch('/api/content', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'erro ao salvar');
+      const j = await api('PUT', '/api/content', patch);
       showToast(j.publicando ? '✅ Salvo! Publicando o site (~1 min)…' : '✅ Alterações salvas!');
       setTimeout(() => location.reload(), 1200);
     } catch (err) {
@@ -356,10 +560,7 @@
   });
 
   // ---------- painel de seções (dobras) ----------
-  const spanel = document.createElement('div');
-  spanel.id = 'tk-spanel';
-  spanel.style.cssText = 'position:fixed;top:46px;right:0;bottom:0;width:min(380px,100vw);z-index:99999;background:#fff;box-shadow:-8px 0 30px rgba(16,27,77,.2);padding:20px 22px 40px;overflow-y:auto;display:none;font:600 14px Nunito Sans,sans-serif;color:#101B4D';
-  document.body.appendChild(spanel);
+  const spanel = criarPanel('tk-spanel');
 
   function nomeSecao(sec, i) {
     const t = sec.querySelector('h1, h2, h3');
@@ -370,14 +571,14 @@
 
   function renderSecoes() {
     const secs = Array.from(document.querySelectorAll('main > section'));
-    spanel.innerHTML = '<h3 style="font:700 16px Nunito Sans,sans-serif;margin:0 0 6px">🧩 Seções do layout ' + TK.layout.toUpperCase() + '</h3>' +
-      '<p style="margin:0 0 14px;padding:10px 12px;background:#F6F4EF;border-radius:10px;font-size:12.5px;color:rgba(16,27,77,.65);line-height:1.5">Desmarque para ocultar a seção do site publicado. No modo edição ela continua visível, esmaecida. Lembre de salvar.</p>' +
+    spanel.innerHTML = '<h3>🧩 Seções da página "' + escHtml(TK.nomePagina || TK.pagina) + '"</h3>' +
+      '<p class="tk-help">Desmarque para ocultar a seção do site publicado (só nesta página). No modo edição ela continua visível, esmaecida. Lembre de salvar.</p>' +
       secs.map((sec, i) => {
         const key = sec.dataset.tkSecao || sec.id || ('sec' + i);
         const oculta = sec.dataset.tkOculta === '1';
-        return '<label style="display:flex;align-items:center;gap:10px;border:1.5px solid rgba(16,27,77,.12);border-radius:12px;padding:11px 14px;margin-bottom:8px;cursor:pointer">' +
+        return '<label style="display:flex;align-items:center;gap:10px;border:1.5px solid rgba(16,27,77,.12);border-radius:12px;padding:11px 14px;margin-bottom:8px;cursor:pointer;font-size:14px;font-weight:600;color:#101B4D">' +
           '<input type="checkbox" data-sec="' + key + '" ' + (oculta ? '' : 'checked') + ' style="width:17px;height:17px;accent-color:#4F9993">' +
-          '<span style="flex:1">' + nomeSecao(sec, i) + '</span>' +
+          '<span style="flex:1">' + escHtml(nomeSecao(sec, i)) + '</span>' +
           '<small style="color:rgba(16,27,77,.4)">' + key + '</small></label>';
       }).join('');
     spanel.querySelectorAll('input[data-sec]').forEach((cb) => cb.addEventListener('change', () => {
@@ -393,15 +594,7 @@
       refreshSave();
     }));
   }
-
-  bar.querySelector('#tk-btn-sec').addEventListener('click', () => {
-    panel.classList.remove('open');
-    if (typeof upanel !== 'undefined') upanel.style.display = 'none';
-    if (typeof lpanel !== 'undefined') lpanel.style.display = 'none';
-    const aberto = spanel.style.display === 'block';
-    spanel.style.display = aberto ? 'none' : 'block';
-    if (!aberto) renderSecoes();
-  });
+  bar.querySelector('#tk-btn-sec').addEventListener('click', () => togglePanel('tk-spanel', renderSecoes));
 
   bar.querySelector('#tk-btn-pub').addEventListener('click', async () => {
     const r = await fetch('/api/publish', { method: 'POST' });
@@ -410,19 +603,16 @@
   });
 
   // ---------- painel de usuários (admin) ----------
-  const upanel = document.createElement('div');
-  upanel.id = 'tk-upanel';
-  upanel.style.cssText = 'position:fixed;top:46px;right:0;bottom:0;width:min(420px,100vw);z-index:99999;background:#fff;box-shadow:-8px 0 30px rgba(16,27,77,.2);padding:20px 22px 40px;overflow-y:auto;display:none;font:600 14px Nunito Sans,sans-serif;color:#101B4D';
-  document.body.appendChild(upanel);
+  const upanel = criarPanel('tk-upanel');
 
   async function renderUsers() {
     const users = await (await fetch('/api/users')).json();
     upanel.innerHTML = `
-      <h3 style="font:700 16px 'Nunito Sans',sans-serif;margin:0 0 14px">👥 Usuários</h3>
+      <h3>👥 Usuários</h3>
       ${users.map((u) => `
-        <div style="border:1.5px solid rgba(16,27,77,.12);border-radius:14px;padding:12px 14px;margin-bottom:10px;${u.ativo ? '' : 'opacity:.5'}">
+        <div class="tk-card" style="${u.ativo ? '' : 'opacity:.5'}">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-            <div><b>${u.nome}</b> <small style="color:rgba(16,27,77,.5)">@${u.login}</small><br>
+            <div><b>${escHtml(u.nome)}</b> <small style="display:inline;color:rgba(16,27,77,.5)">@${escHtml(u.login)}</small><br>
             <small style="color:${u.role === 'admin' ? '#FF6655' : '#4F9993'};font-weight:800">${u.role === 'admin' ? 'Administrador' : 'Editor'}</small>
             ${u.ativo ? '' : ' · <small style="font-weight:800">desativado</small>'}</div>
             <div style="display:flex;gap:6px">
@@ -431,16 +621,16 @@
             </div>
           </div>
         </div>`).join('')}
-      <h3 style="font:700 15px 'Nunito Sans',sans-serif;margin:20px 0 10px">Novo usuário (ex.: agência)</h3>
-      <input id="tk-u-nome" placeholder="Nome" style="width:100%;border:1.5px solid rgba(16,27,77,.2);border-radius:10px;padding:9px 12px;margin-bottom:8px;box-sizing:border-box">
-      <input id="tk-u-login" placeholder="Login (ex.: agencia)" style="width:100%;border:1.5px solid rgba(16,27,77,.2);border-radius:10px;padding:9px 12px;margin-bottom:8px;box-sizing:border-box">
-      <input id="tk-u-senha" type="password" placeholder="Senha (mín. 8 caracteres)" style="width:100%;border:1.5px solid rgba(16,27,77,.2);border-radius:10px;padding:9px 12px;margin-bottom:8px;box-sizing:border-box">
-      <select id="tk-u-role" style="width:100%;border:1.5px solid rgba(16,27,77,.2);border-radius:10px;padding:9px 12px;margin-bottom:10px;box-sizing:border-box">
+      <h3 style="font-size:15px">Novo usuário (ex.: agência)</h3>
+      <input id="tk-u-nome" placeholder="Nome" style="margin-bottom:8px">
+      <input id="tk-u-login" placeholder="Login (ex.: agencia)" style="margin-bottom:8px">
+      <input id="tk-u-senha" type="password" placeholder="Senha (mín. 8 caracteres)" style="margin-bottom:8px">
+      <select id="tk-u-role" style="margin-bottom:10px">
         <option value="editor">Editor — edita conteúdo (para a agência)</option>
         <option value="admin">Administrador — tudo, inclusive usuários</option>
       </select>
-      <button id="tk-u-criar" style="width:100%;border:0;border-radius:999px;padding:11px;background:#FF6655;color:#fff;font:700 14px 'Nunito Sans',sans-serif;cursor:pointer">Criar usuário</button>
-      <div id="tk-u-erro" style="color:#d0342a;font-weight:700;font-size:13px;min-height:18px;margin-top:8px"></div>`;
+      <button id="tk-u-criar" class="tk-btn tk-btn-main">Criar usuário</button>
+      <div id="tk-u-erro" class="tk-erro"></div>`;
 
     upanel.querySelector('#tk-u-criar').addEventListener('click', async () => {
       const erro = upanel.querySelector('#tk-u-erro');
@@ -466,46 +656,27 @@
   }
 
   // ---------- painel de histórico (admin) ----------
-  const lpanel = document.createElement('div');
-  lpanel.id = 'tk-lpanel';
-  lpanel.style.cssText = upanel.style.cssText;
-  document.body.appendChild(lpanel);
+  const lpanel = criarPanel('tk-lpanel');
 
   const ACAO_LABEL = { login: '🔓 Entrou', login_falhou: '⛔ Login falhou', conteudo_alterado: '✏️ Alterou conteúdo',
-    imagem_enviada: '🖼️ Enviou imagem', usuario_criado: '👥 Criou usuário', usuario_alterado: '👥 Alterou usuário', publicacao: '🚀 Publicação' };
+    imagem_enviada: '🖼️ Enviou imagem', video_enviado: '🎬 Enviou vídeo', usuario_criado: '👥 Criou usuário', usuario_alterado: '👥 Alterou usuário',
+    pagina_clonada: '📄 Clonou página', pagina_excluida: '🗑 Excluiu página', publicacao: '🚀 Publicação' };
   async function renderLog() {
     const log = await (await fetch('/api/audit')).json();
-    lpanel.innerHTML = '<h3 style="font:700 16px Nunito Sans,sans-serif;margin:0 0 14px">📜 Histórico de alterações e acessos</h3>' +
+    lpanel.innerHTML = '<h3>📜 Histórico de alterações e acessos</h3>' +
       (log.length ? log.map((e) => `
         <div style="border-bottom:1px solid rgba(16,27,77,.08);padding:9px 2px;font-size:13px">
           <div style="display:flex;justify-content:space-between;gap:8px">
             <b>${ACAO_LABEL[e.acao] || e.acao}</b>
-            <small style="color:rgba(16,27,77,.45);white-space:nowrap">${new Date(e.ts).toLocaleString('pt-BR')}</small>
+            <small style="display:inline;color:rgba(16,27,77,.45);white-space:nowrap">${new Date(e.ts).toLocaleString('pt-BR')}</small>
           </div>
-          <div style="color:rgba(16,27,77,.65)">${e.usuario}${e.detalhe ? ' · ' + e.detalhe : ''}</div>
+          <div style="color:rgba(16,27,77,.65)">${escHtml(e.usuario)}${e.detalhe ? ' · ' + escHtml(e.detalhe) : ''}</div>
         </div>`).join('') : '<p>Nenhum registro ainda.</p>');
   }
 
-  function togglePanel(which) {
-    const map = { cfg: panel, users: upanel, log: lpanel };
-    for (const [k, p] of Object.entries(map)) {
-      if (k === which) p.classList ? p.classList.toggle('open') : null;
-      if (k !== which) { p.classList && p.classList.remove('open'); p.style && k !== 'cfg' && (p.style.display = 'none'); }
-    }
-  }
   if (isAdmin) {
-    bar.querySelector('#tk-btn-users').addEventListener('click', () => {
-      panel.classList.remove('open'); lpanel.style.display = 'none'; spanel.style.display = 'none';
-      const aberto = upanel.style.display === 'block';
-      upanel.style.display = aberto ? 'none' : 'block';
-      if (!aberto) renderUsers();
-    });
-    bar.querySelector('#tk-btn-log').addEventListener('click', () => {
-      panel.classList.remove('open'); upanel.style.display = 'none'; spanel.style.display = 'none';
-      const aberto = lpanel.style.display === 'block';
-      lpanel.style.display = aberto ? 'none' : 'block';
-      if (!aberto) renderLog();
-    });
+    bar.querySelector('#tk-btn-users').addEventListener('click', () => togglePanel('tk-upanel', renderUsers));
+    bar.querySelector('#tk-btn-log').addEventListener('click', () => togglePanel('tk-lpanel', renderLog));
   }
 
   bar.querySelector('#tk-btn-exit').addEventListener('click', async () => {

@@ -1,8 +1,16 @@
-// Injeção server-side nos HTMLs dos layouts:
+// Injeção server-side no template da página (pagina.html):
+//  - estilo da página (cores, fonte dos títulos, formato dos botões)
 //  - conteúdo (window.__TK) para hidratação e edição
 //  - tags de rastreamento/verificação (GA4, GTM, Meta Pixel, TikTok, Search Console)
 //  - scripts cms.js (sempre) e editor.js (apenas autenticado)
 // As tags entram no <head> real, então crawlers de verificação as enxergam.
+const fs = require('fs');
+const path = require('path');
+const { ESTILO_PADRAO, estiloDe, idsPaginas } = require('./content');
+
+const ROOT = path.join(__dirname, '..', '..');
+const CSS_BASE = fs.readFileSync(path.join(ROOT, 'css', 'style.css'), 'utf8');
+const FONTES_CSS = { 'Baloo 2': 'css/fonts-baloo.css', 'Manrope': 'css/fonts-manrope.css' };
 
 function esc(s) {
   return String(s).replace(/[<>"']/g, (c) => ({ '<': '\\u003c', '>': '\\u003e', '"': '\\u0022', "'": '\\u0027' }[c]));
@@ -13,6 +21,68 @@ function safeId(s) {
   return /^[\w-]{1,64}$/.test(String(s || '')) ? String(s) : '';
 }
 
+// ---------- estilo por página ----------
+function rgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function hex(r, g, b) {
+  return '#' + [r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+}
+// mistura a cor com preto (k<0) ou branco (k>0)
+function mix(h, k) {
+  const [r, g, b] = rgb(h);
+  const alvo = k < 0 ? 0 : 255;
+  const f = Math.abs(k);
+  return hex(r + (alvo - r) * f, g + (alvo - g) * f, b + (alvo - b) * f);
+}
+function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+// Tokens do template: cor padrão → como aparece no HTML/CSS (hex e rgba)
+// e derivados (hover mais escuro, variante mais clara) que acompanham a troca.
+const TOKENS = [
+  { chave: 'corPrincipal', derivados: { '#e9503f': -0.12 } },
+  { chave: 'corEscura', derivados: { '#1A2760': 0.08 } },
+  { chave: 'corFundo', derivados: {} },
+];
+
+function trocarCor(texto, de, para, derivados) {
+  const [r, g, b] = rgb(de);
+  const [nr, ng, nb] = rgb(para);
+  texto = texto.replace(new RegExp(escRe(de), 'gi'), para);
+  texto = texto.replace(new RegExp(`rgba\\(\\s*${r}\\s*,\\s*${g}\\s*,\\s*${b}\\s*,`, 'g'), `rgba(${nr},${ng},${nb},`);
+  for (const [dHex, k] of Object.entries(derivados)) {
+    texto = texto.replace(new RegExp(escRe(dHex), 'gi'), mix(para, k));
+  }
+  return texto;
+}
+
+// Aplica o estilo ao HTML do template e devolve o HTML com o CSS base
+// embutido (o CSS também recebe as cores, então precisa ir inline).
+function aplicarEstilo(html, estilo) {
+  let css = CSS_BASE;
+  const links = [];
+  for (const t of TOKENS) {
+    const de = ESTILO_PADRAO[t.chave];
+    const para = (estilo[t.chave] || de).toUpperCase();
+    if (para === de.toUpperCase()) continue;
+    html = trocarCor(html, de, para, t.derivados);
+    css = trocarCor(css, de, para, t.derivados);
+  }
+  const fonte = estilo.fonteTitulos || ESTILO_PADRAO.fonteTitulos;
+  if (fonte !== ESTILO_PADRAO.fonteTitulos) {
+    html = html.replace(/'Poppins'/g, `'${fonte}'`);
+    css = css.replace(/'Poppins'/g, `'${fonte}'`);
+    if (FONTES_CSS[fonte]) links.push(`<link rel="stylesheet" href="${FONTES_CSS[fonte]}">`);
+  }
+  if ((estilo.botoes || ESTILO_PADRAO.botoes) === 'reto') {
+    html = html.replace(/border-radius:\s*999px/g, 'border-radius:8px');
+  }
+  return html.replace('<link rel="stylesheet" href="css/style.css">',
+    links.concat(`<style id="tk-css">\n${css}\n</style>`).join('\n'));
+}
+
+// ---------- rastreamento ----------
 function trackingTags(tracking, siteUrl) {
   const t = tracking || {};
   const parts = [];
@@ -57,17 +127,34 @@ function trackingTags(tracking, siteUrl) {
   return parts.join('\n');
 }
 
-function inject(html, { content, layout, authed, user, baseHref, siteUrl }) {
+// ---------- montagem ----------
+function inject(html, { content, pagina, authed, user, baseHref, siteUrl }) {
+  const p = content.paginas[pagina];
+  const estilo = estiloDe(content, pagina);
+  html = aplicarEstilo(html, estilo);
+
   const boot = {
-    layout,
+    pagina,
+    nomePagina: p.nome,
     authed: !!authed,
     user: user ? { nome: user.nome, role: user.role } : undefined,
     config: content.config,
-    textos: (content.textos && content.textos[layout]) || {},
-    imagens: content.imagens || {},
-    secoes: (content.secoes && content.secoes[layout]) || {},
+    textos: p.textos || {},
+    imagens: p.imagens || {},
+    secoes: p.secoes || {},
+    estilo,
+    estiloPadrao: ESTILO_PADRAO,
+    origem: content.origem || {},
     vsl: content.vsl || {},
   };
+  // lista de páginas e teste A/B: só quem edita precisa
+  if (authed) {
+    boot.paginas = idsPaginas(content).map((id) => ({
+      id, nome: content.paginas[id].nome, ativa: content.paginas[id].ativa !== false,
+      principal: id === content.config.paginaPrincipal, criadaEm: content.paginas[id].criadaEm,
+    }));
+    boot.ab = content.ab;
+  }
 
   const headExtra = [
     baseHref ? '<base href="/">' : '',
@@ -86,4 +173,13 @@ function inject(html, { content, layout, authed, user, baseHref, siteUrl }) {
     .replace('</body>', bodyExtra + '\n</body>');
 }
 
-module.exports = { inject };
+// Página desativada: quem cair no endereço dela vai para a principal,
+// preservando os parâmetros da URL (utm etc.)
+function redirectHtml() {
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="robots" content="noindex">
+<title>Tuck Kids</title><meta http-equiv="refresh" content="0; url=/">
+<script>location.replace('/' + location.search + location.hash);</script></head>
+<body><p>Redirecionando… <a href="/">Ir para o site</a></p></body></html>`;
+}
+
+module.exports = { inject, aplicarEstilo, redirectHtml };
