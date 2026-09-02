@@ -34,8 +34,8 @@ button:disabled { opacity: .5; }
 <p>Bem-vindo! Crie o <strong>primeiro administrador</strong> do painel.<br>
 Os dados ficam gravados com criptografia no armazenamento do sistema.</p>
 <input type="text" id="nome" placeholder="Seu nome" autocomplete="name" autofocus required>
-<input type="text" id="login" placeholder="Login (ex.: jackson)" autocomplete="username" required
-  pattern="[a-zA-Z0-9._-]{3,40}">
+<input type="text" id="login" placeholder="Login (ex.: jackson ou e-mail)" autocomplete="username" required
+  pattern="[a-zA-Z0-9._@-]{3,60}">
 <input type="password" id="senha" placeholder="Senha (mín. 8 caracteres)" autocomplete="new-password" minlength="8" required>
 <input type="password" id="senha2" placeholder="Confirme a senha" autocomplete="new-password" minlength="8" required>
 <button type="submit" id="btn">Criar administrador e entrar</button>

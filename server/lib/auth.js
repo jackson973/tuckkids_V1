@@ -41,7 +41,7 @@ async function setupPendente() {
 async function createFirstAdmin({ login, nome, senha }) {
   if (!(await setupPendente())) throw new Error('a configuração inicial já foi concluída');
   login = String(login || '').toLowerCase().trim();
-  if (!/^[a-z0-9._-]{3,40}$/.test(login)) throw new Error('login inválido (3-40 caracteres, letras/números/._-)');
+  if (!/^[a-z0-9._@-]{3,60}$/.test(login)) throw new Error('login inválido (3-60 caracteres: letras, números, ponto, @, _ ou -)');
   if (!senha || String(senha).length < 8) throw new Error('senha precisa de pelo menos 8 caracteres');
   const user = {
     id: 'u_' + crypto.randomBytes(4).toString('hex'),
@@ -74,7 +74,7 @@ async function checkLogin(login, password) {
 async function createUser({ login, nome, senha, role }) {
   const users = await getUsers();
   login = String(login || '').toLowerCase().trim();
-  if (!/^[a-z0-9._-]{3,40}$/.test(login)) throw new Error('login inválido (3-40 caracteres, letras/números/._-)');
+  if (!/^[a-z0-9._@-]{3,60}$/.test(login)) throw new Error('login inválido (3-60 caracteres: letras, números, ponto, @, _ ou -)');
   if (users.some((u) => u.login === login)) throw new Error('já existe usuário com esse login');
   if (!senha || String(senha).length < 8) throw new Error('senha precisa de pelo menos 8 caracteres');
   if (!ROLES.includes(role)) role = 'editor';
