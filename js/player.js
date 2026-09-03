@@ -9,6 +9,7 @@
      1-(1-t)^2.5) e sem seek — não dá para arrastar/pular
    - Retomar: posição salva; ao voltar, "Continuar assistindo?"
    - CTA no pitch: botão de WhatsApp aparece após N segundos
+   - Fim: mudo (não ativado) repete em loop; com som mostra tela escura + CTA
    - Eventos de audiência: vsl_play / vsl_unmute / vsl_25/50/75 /
      vsl_complete / vsl_pitch no Pixel, GA4 e dataLayer
    ============================================================ */
@@ -216,13 +217,15 @@
         if (video.currentTime - lastSave > 2) { lastSave = video.currentTime; save('pos', Math.floor(video.currentTime)); }
       }
     });
-    // Fim do vídeo (padrão VTurb/ThumbSniper): nada de tela preta —
-    // exibe a capa com o CTA em destaque + opção de rever
+    // Fim do vídeo:
+    //  - quem nunca ativou o som (autoplay mudo) vê o vídeo recomeçar sozinho,
+    //    mantendo o convite "clique para ativar o som"
+    //  - quem assistiu com som até o fim vê a tela escura com o CTA em
+    //    destaque e a opção de rever (sem a capa/imagem do layout)
     function overlayFinal() {
       clearOverlays();
       const ov = overlay(
-        `${poster ? `<div style="position:absolute;inset:0;background:url('${poster}') center/cover no-repeat"></div>` : ''}
-        <div style="position:absolute;inset:0;background:rgba(16,27,77,.75)"></div>
+        `<div style="position:absolute;inset:0;background:#05081C"></div>
         <div style="position:relative;text-align:center;z-index:2;padding:20px">
           <a class="tkp-cta" href="${waHref()}" data-wa="catalogo" target="_blank" rel="noopener">${(vsl.ctaTexto || 'Quero o catálogo agora').replace(/[<>]/g, '')}</a>
           <div class="tkp-sub"><button class="tkp-btn2" type="button" data-acao="replay">↺&nbsp; Assistir novamente</button></div>
@@ -236,8 +239,14 @@
     }
 
     video.addEventListener('ended', () => {
-      if (ativo) track('vsl_complete');
       save('pos', 0);
+      if (!ativo) {               // apresentação ainda não "iniciada" pelo visitante: repete mudo
+        bar.style.width = '0%';
+        video.currentTime = 0;
+        play();
+        return;
+      }
+      track('vsl_complete');
       bar.style.width = '100%';
       overlayFinal();
     });
