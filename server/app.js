@@ -108,6 +108,11 @@ app.get(/^\/(v\d{1,3})\.html$/, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// Páginas legais (estáticas, fora do template editável)
+for (const legal of ['termos', 'privacidade']) {
+  app.get(`/${legal}.html`, (req, res) => res.sendFile(path.join(ROOT, `${legal}.html`)));
+}
+
 // ---------- login ----------
 app.get('/admin', async (req, res) => {
   if (await auth.userFromReq(req)) return res.redirect('/painel');
@@ -313,7 +318,7 @@ function baseUrl(req) { return `${req.protocol}://${req.get('host')}`; }
 app.get('/sitemap.xml', async (req, res, next) => {
   try {
     const content = await contentStore.load();
-    const urls = ['/', ...contentStore.paginasAtivas(content).map((id) => `/${id}.html`)]
+    const urls = ['/', ...contentStore.paginasAtivas(content).map((id) => `/${id}.html`), '/termos.html', '/privacidade.html']
       .map((u) => `<url><loc>${baseUrl(req)}${u}</loc></url>`).join('');
     res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
   } catch (e) { next(e); }

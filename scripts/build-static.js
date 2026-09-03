@@ -57,6 +57,11 @@ function siteUrl() {
       ativa ? inject(template, { content, pagina: id, authed: false, siteUrl: siteUrl() }) : redirectHtml());
   }
 
+  // páginas legais (estáticas)
+  for (const legal of ['termos', 'privacidade']) {
+    fs.copyFileSync(path.join(ROOT, `${legal}.html`), path.join(DIST, `${legal}.html`));
+  }
+
   // raiz = página principal (com o teste A/B ligado o middleware
   // reescreve a raiz para a variante sorteada)
   fs.writeFileSync(path.join(DIST, 'index.html'),
@@ -69,7 +74,7 @@ function siteUrl() {
   fs.writeFileSync(path.join(DIST, 'robots.txt'),
     `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /painel\n${base ? `Sitemap: ${base}/sitemap.xml\n` : ''}`);
   if (base) {
-    const urls = ['/'].map((u) => `<url><loc>${base}${u}</loc></url>`).join('');
+    const urls = ['/', '/termos.html', '/privacidade.html'].map((u) => `<url><loc>${base}${u}</loc></url>`).join('');
     fs.writeFileSync(path.join(DIST, 'sitemap.xml'),
       `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
   }

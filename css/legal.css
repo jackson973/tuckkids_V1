@@ -1,0 +1,28 @@
+/* Páginas legais (Termos de Uso e Política de Privacidade) */
+.lg-header {
+  position: sticky; top: 0; z-index: 10;
+  background: rgba(251, 247, 239, .94); backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(16, 27, 77, .08);
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 10px clamp(16px, 4vw, 44px);
+}
+.lg-header img { height: 54px; width: auto; display: block; mix-blend-mode: multiply; }
+.lg-header nav { display: flex; gap: clamp(12px, 3vw, 28px); font-weight: 700; font-size: 14.5px; }
+.lg-header nav a { color: #101B4D; }
+.lg-header nav a:hover { color: #FF6655; }
+
+.lg-main { max-width: 780px; margin: 0 auto; padding: clamp(40px, 6vw, 72px) clamp(16px, 4vw, 44px) clamp(56px, 8vw, 96px); line-height: 1.7; }
+.lg-tag { display: inline-block; background: rgba(79, 153, 147, .14); color: #3d7a75; border-radius: 999px; padding: 6px 14px;
+  font-weight: 800; font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 16px; }
+.lg-main h1 { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: clamp(30px, 4vw, 42px); letter-spacing: -.01em; margin: 0 0 6px; line-height: 1.15; }
+.lg-meta { margin: 0 0 32px; font-weight: 700; font-size: 14px; color: rgba(16, 27, 77, .55); }
+.lg-main h2 { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 21px; margin: 36px 0 10px; }
+.lg-main h3 { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 16.5px; margin: 22px 0 6px; }
+.lg-main p, .lg-main li { font-size: 16px; font-weight: 500; color: rgba(16, 27, 77, .85); margin: 0 0 14px; }
+.lg-main ul { padding-left: 22px; margin: 0 0 14px; }
+.lg-main li { margin-bottom: 8px; }
+.lg-main a { color: #3d7a75; text-decoration: underline; }
+.lg-main a:hover { color: #FF6655; }
+
+.lg-footer { background: #101B4D; color: rgba(251, 247, 239, .6); text-align: center; padding: 22px 16px; font-size: 13px; font-weight: 700; }
+.lg-footer a { color: #9BCBC5; }
