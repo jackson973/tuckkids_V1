@@ -131,7 +131,7 @@ async function applyPatch(patch) {
   const resumo = [];
 
   if (patch.config && typeof patch.config === 'object') {
-    const allowed = ['paginaPrincipal', 'whatsappNumber', 'pedidoMinimo', 'instagram', 'facebook', 'modoLancamento'];
+    const allowed = ['paginaPrincipal', 'whatsappNumber', 'pedidoMinimo', 'instagram', 'instagramAtivo', 'facebook', 'facebookAtivo', 'modoLancamento'];
     next.config = { ...cur.config };
     const mudados = [];
     for (const k of allowed) {

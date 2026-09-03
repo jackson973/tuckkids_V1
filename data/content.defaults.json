@@ -5,7 +5,9 @@
     "pedidoMinimo": "R$ 2.000",
     "instagram": "",
     "facebook": "",
-    "modoLancamento": "on"
+    "modoLancamento": "on",
+    "instagramAtivo": "on",
+    "facebookAtivo": "on"
   },
   "tracking": {
     "ga4Id": "",

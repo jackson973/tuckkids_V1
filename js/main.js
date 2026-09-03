@@ -111,11 +111,14 @@ window.__TK_applyConfig = function applyConfig() {
   document.querySelectorAll('[data-cfg="pedidoMinimo"]').forEach((el) => {
     el.textContent = TK_CONFIG.pedidoMinimo;
   });
+  // Redes sociais: link configurado no painel; "inativo" esconde o ícone do site
   document.querySelectorAll('a[aria-label="Instagram"]').forEach((el) => {
     if (TK_CONFIG.instagram) el.setAttribute('href', TK_CONFIG.instagram);
+    el.style.display = TK_CONFIG.instagramAtivo === 'off' ? 'none' : '';
   });
   document.querySelectorAll('a[aria-label="Facebook"]').forEach((el) => {
     if (TK_CONFIG.facebook) el.setAttribute('href', TK_CONFIG.facebook);
+    el.style.display = TK_CONFIG.facebookAtivo === 'off' ? 'none' : '';
   });
 };
 
