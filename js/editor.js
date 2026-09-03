@@ -164,13 +164,17 @@
     const w = Math.round(r.width), h = Math.round(r.height);
     if (!w || !h) return null;
     const contain = img.classList.contains('img-contain');
-    const autoH = !img.classList.contains('img-cover') && !contain; // ex.: logo (altura fixa, largura livre)
-    return { w, h, ideal: [w * 2, h * 2], proporcao: proporcaoDe(w, h), contain, autoH };
+    const livre = !img.classList.contains('img-cover') && !contain;
+    const autoW = livre && img.style.height === 'auto';   // ex.: banner (largura total, altura acompanha a foto)
+    const autoH = livre && !autoW;                          // ex.: logo (altura fixa, largura livre)
+    return { w, h, ideal: [w * 2, h * 2], proporcao: proporcaoDe(w, h), contain, autoH, autoW };
   }
   function mostrarDica(img) {
     const i = infoImagem(img);
     if (!i) return;
-    dica.innerHTML = i.autoH
+    dica.innerHTML = i.autoW
+      ? `📐 Largura do espaço: <b>${i.w}px</b> · a foto aparece inteira, em qualquer proporção<small>Envie com pelo menos ${i.ideal[0]}px de largura. A altura da seção acompanha a foto.</small>`
+      : i.autoH
       ? `📐 Altura do espaço: <b>${i.h}px</b> (largura livre)<small>Envie com pelo menos ${i.ideal[1]}px de altura.</small>`
       : `📐 Tamanho ideal: <b>${i.ideal[0]} × ${i.ideal[1]} px</b> · proporção <b>${i.proporcao}</b>` +
         `<small>${i.contain ? 'A foto aparece inteira; com outra proporção sobra fundo nas laterais.' : 'A foto preenche o espaço; com outra proporção as bordas são cortadas.'} Medido no tamanho atual da tela.</small>`;
@@ -259,6 +263,7 @@
   function avisoProporcao(img, dim) {
     const i = infoImagem(img);
     if (!i || !dim || i.autoH) return '';
+    if (i.autoW) return dim.w < i.w ? `⚠️ a foto tem ${dim.w}px de largura, menor que o espaço (${i.w}px) — pode ficar borrada. Ideal: ${i.ideal[0]}px ou mais.` : '';
     const rFoto = dim.w / dim.h, rEspaco = i.w / i.h;
     const dif = Math.abs(rFoto - rEspaco) / rEspaco;
     const pequena = dim.w < i.w || dim.h < i.h;
