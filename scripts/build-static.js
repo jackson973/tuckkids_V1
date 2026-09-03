@@ -36,6 +36,7 @@ function siteUrl() {
   const content = await contentStore.load();
   const principal = content.config.paginaPrincipal;
   const ativas = contentStore.paginasAtivas(content);
+  console.log(`[build] conteúdo salvo em: ${content.salvoEm || 'nunca (padrões)'}`);
   console.log(`[build] página principal: ${principal} · ativas: ${ativas.join(', ')} · teste A/B: ${content.ab.ativo} · modo lançamento: ${content.config.modoLancamento || 'off'}`);
 
   fs.rmSync(DIST, { recursive: true, force: true });

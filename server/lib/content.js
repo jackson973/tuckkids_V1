@@ -110,6 +110,7 @@ async function load() {
 }
 
 async function save(content) {
+  content.salvoEm = new Date().toISOString();
   await store.setJSON('content', content);
 }
 

@@ -44,26 +44,54 @@ function decrypt(payload) {
 }
 
 // ---------- driver: Vercel Blob ----------
+// Cada gravação vira um arquivo NOVO (tk/<nome>/<timestamp>.json) em vez de
+// sobrescrever o mesmo endereço: o CDN do Blob pode servir por até ~60s a
+// versão antiga de um arquivo sobrescrito, e o build disparado logo após o
+// "Salvar" lia conteúdo velho (ex.: modo lançamento continuava "on").
+// A leitura lista o prefixo pela API (sempre atual) e baixa o mais recente;
+// as últimas KEEP versões ficam como histórico, o resto é apagado.
+const KEEP = 10;
+
+async function blobList(name) {
+  const { list } = require('@vercel/blob');
+  const { blobs } = await list({ prefix: `tk/${name}/`, limit: 200 });
+  return blobs.sort((a, b) => (a.pathname < b.pathname ? 1 : -1)); // timestamp no nome → mais novo primeiro
+}
+
 async function blobGet(name) {
-  const { head } = require('@vercel/blob');
   try {
-    const meta = await head(`tk/${name}.json`);
-    const r = await fetch(meta.url + (meta.url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), { cache: 'no-store' });
+    let url;
+    const versoes = await blobList(name);
+    if (versoes.length) {
+      url = versoes[0].url;
+    } else {
+      // formato antigo (arquivo único sobrescrito) — migração transparente
+      const { head } = require('@vercel/blob');
+      const meta = await head(`tk/${name}.json`);
+      url = meta.url + (meta.url.includes('?') ? '&' : '?') + 'ts=' + Date.now();
+    }
+    const r = await fetch(url, { cache: 'no-store' });
     if (!r.ok) return null;
     return await r.text();
   } catch {
     return null; // não existe ainda
   }
 }
+
 async function blobSet(name, text) {
-  const { put } = require('@vercel/blob');
-  await put(`tk/${name}.json`, text, {
+  const { put, del } = require('@vercel/blob');
+  await put(`tk/${name}/${Date.now()}.json`, text, {
     access: 'public',
-    addRandomSuffix: false,
-    allowOverwrite: true,
+    addRandomSuffix: true,
     contentType: 'application/json',
     cacheControlMaxAge: 0,
   });
+  try {
+    const antigas = (await blobList(name)).slice(KEEP);
+    if (antigas.length) await del(antigas.map((b) => b.url));
+  } catch (e) {
+    console.warn(`[store] limpeza de versões antigas de ${name} falhou:`, e.message);
+  }
 }
 
 // ---------- driver: disco ----------
