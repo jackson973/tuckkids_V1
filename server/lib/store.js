@@ -58,24 +58,38 @@ async function blobList(name) {
   return blobs.sort((a, b) => (a.pathname < b.pathname ? 1 : -1)); // timestamp no nome → mais novo primeiro
 }
 
+// Erro de leitura ≠ "não existe": se o Blob estiver indisponível (ex.: store
+// bloqueado por limite do plano, resposta 403), lançamos erro em vez de devolver
+// null — senão o build publicaria o site com o conteúdo PADRÃO e um "Salvar"
+// no painel sobrescreveria todo o conteúdo editado.
 async function blobGet(name) {
+  let versoes;
   try {
-    let url;
-    const versoes = await blobList(name);
-    if (versoes.length) {
-      url = versoes[0].url;
-    } else {
-      // formato antigo (arquivo único sobrescrito) — migração transparente
-      const { head } = require('@vercel/blob');
+    versoes = await blobList(name);
+  } catch (e) {
+    throw new Error(`armazenamento (Vercel Blob) indisponível ao listar ${name}: ${e.message}`);
+  }
+  let url;
+  if (versoes.length) {
+    url = versoes[0].url;
+  } else {
+    // formato antigo (arquivo único sobrescrito) — migração transparente
+    const { head } = require('@vercel/blob');
+    try {
       const meta = await head(`tk/${name}.json`);
       url = meta.url + (meta.url.includes('?') ? '&' : '?') + 'ts=' + Date.now();
+    } catch (e) {
+      if (/not\s*found|404/i.test(String(e && (e.name + ' ' + e.message)))) return null; // não existe ainda
+      throw new Error(`armazenamento (Vercel Blob) indisponível ao ler ${name}: ${e.message}`);
     }
-    const r = await fetch(url, { cache: 'no-store' });
-    if (!r.ok) return null;
-    return await r.text();
-  } catch {
-    return null; // não existe ainda
   }
+  const r = await fetch(url, { cache: 'no-store' });
+  if (r.status === 404) return null;
+  if (!r.ok) {
+    const corpo = (await r.text().catch(() => '')).slice(0, 120);
+    throw new Error(`armazenamento (Vercel Blob) respondeu ${r.status} ao ler ${name}: ${corpo || 'sem detalhes'}`);
+  }
+  return await r.text();
 }
 
 async function blobSet(name, text) {

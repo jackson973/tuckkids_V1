@@ -336,6 +336,9 @@ app.use('/js', express.static(path.join(ROOT, 'js')));
 // ---------- erros ----------
 app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   console.error(err);
+  if (/Vercel Blob/.test(String(err && err.message))) {
+    return res.status(503).json({ error: 'Armazenamento indisponível (Vercel Blob bloqueado ou fora do ar). Nada foi alterado. Verifique Storage no painel da Vercel.' });
+  }
   res.status(500).json({ error: 'erro interno' });
 });
 

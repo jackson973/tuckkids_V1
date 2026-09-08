@@ -82,5 +82,8 @@ function siteUrl() {
   console.log('[build] dist/ gerado com sucesso');
 })().catch((e) => {
   console.error('[build] falhou:', e);
+  if (/Vercel Blob/.test(String(e && e.message))) {
+    console.error('[build] O conteúdo do painel não pôde ser lido — a publicação foi ABORTADA para não sobrescrever o site com o conteúdo padrão. Verifique o store Blob no painel da Vercel (Storage) e publique de novo.');
+  }
   process.exit(1);
 });
