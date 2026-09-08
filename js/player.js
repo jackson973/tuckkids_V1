@@ -66,7 +66,6 @@
     if (!box || box.dataset.tkPlayerOn) return;
     box.dataset.tkPlayerOn = '1';
 
-    const poster = (box.querySelector('img') || {}).src || '';
     box.innerHTML = '';
     box.style.cursor = 'pointer';
     if (VERTICAL) {
@@ -98,7 +97,7 @@
     // vídeo
     const video = document.createElement('video');
     video.src = SRC;
-    if (poster) video.poster = poster;
+    // sem capa (poster): o quadro é sempre o próprio vídeo, nunca a imagem do layout
     video.playsInline = true;
     video.preload = 'metadata';
     video.disablePictureInPicture = true;
@@ -252,11 +251,15 @@
     });
 
     // ---------- início ----------
+    // O vídeo está sempre rodando (mudo) por trás dos convites; quem já
+    // assistiu com som e saiu no meio vê "Continuar assistindo" por cima.
     track('vsl_view');
     const pos = Number(saved('pos') || 0);
+    const autoplay = (vsl.autoplay || 'on') === 'on';
     if (pos > 10) {
       overlayRetomar(pos);
-    } else if ((vsl.autoplay || 'on') === 'on') {
+      if (autoplay) { video.muted = true; play(); }
+    } else if (autoplay) {
       video.muted = true;
       video.play().then(() => { overlaySom(); track('vsl_play'); }).catch(() => overlayPlay());
     } else {
