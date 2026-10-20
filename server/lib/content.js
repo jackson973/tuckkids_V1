@@ -8,6 +8,10 @@
 //                              as demais nascem como clone de uma existente)
 //   ab                      → { ativo: 'on'|'off', pesos: { v1: 50, v2: 50 } }
 //   origem                  → abertura da mensagem do WhatsApp por origem do visitante
+//   config.whatsappNumeros  → [{ nome, numero, peso, ativo }] — rodízio de atendimento:
+//                             cada visita sorteia um número pelos pesos; após o clique
+//                             o visitante fica fixo nele (localStorage, 30 dias).
+//                             config.whatsappNumber = 1º ativo (compatibilidade)
 const fs = require('fs');
 const path = require('path');
 const store = require('./store');
@@ -100,7 +104,35 @@ function sanear(content) {
   content.ab.pesos = pesos;
   if (Object.keys(pesos).length < 2) content.ab.ativo = 'off';
   content.origem = content.origem || {};
+  // Rodízio de WhatsApp: conteúdo antigo (número único) vira a lista com 1 número
+  if (!Array.isArray(content.config.whatsappNumeros)) {
+    content.config.whatsappNumeros = content.config.whatsappNumber
+      ? [{ nome: 'Principal', numero: String(content.config.whatsappNumber).replace(/\D/g, ''), peso: 100, ativo: true }]
+      : [];
+  }
+  const ativo = content.config.whatsappNumeros.find((n) => n.ativo && n.peso > 0);
+  if (ativo) content.config.whatsappNumber = ativo.numero;
   return content;
+}
+
+const MAX_WA_NUMEROS = 20;
+
+// Valida a lista de números do rodízio vinda do editor
+function validarNumeros(lista) {
+  if (!Array.isArray(lista)) throw new Error('lista de WhatsApp inválida');
+  if (lista.length > MAX_WA_NUMEROS) throw new Error(`no máximo ${MAX_WA_NUMEROS} números de WhatsApp`);
+  const vistos = new Set();
+  const out = lista.map((n, i) => {
+    const numero = String((n && n.numero) || '').replace(/\D/g, '');
+    if (!/^\d{10,15}$/.test(numero)) throw new Error(`WhatsApp nº ${i + 1}: use 55 + DDD + número (10 a 15 dígitos)`);
+    if (vistos.has(numero)) throw new Error(`WhatsApp ${numero} está repetido`);
+    vistos.add(numero);
+    const peso = Math.round(Number(n.peso));
+    if (!Number.isFinite(peso) || peso < 0 || peso > 1000) throw new Error(`WhatsApp nº ${i + 1}: peso deve ser de 0 a 1000`);
+    return { nome: String(n.nome || '').trim().slice(0, 60) || ('Número ' + (i + 1)), numero, peso, ativo: n.ativo !== false };
+  });
+  if (!out.some((n) => n.ativo && n.peso > 0)) throw new Error('deixe pelo menos um WhatsApp ativo com peso maior que 0');
+  return out;
 }
 
 async function load() {
@@ -131,13 +163,21 @@ async function applyPatch(patch) {
   const resumo = [];
 
   if (patch.config && typeof patch.config === 'object') {
-    const allowed = ['paginaPrincipal', 'whatsappNumber', 'pedidoMinimo', 'instagram', 'instagramAtivo', 'facebook', 'facebookAtivo', 'modoLancamento'];
+    const allowed = ['paginaPrincipal', 'pedidoMinimo', 'instagram', 'instagramAtivo', 'facebook', 'facebookAtivo', 'modoLancamento'];
     next.config = { ...cur.config };
     const mudados = [];
     for (const k of allowed) {
       if (typeof patch.config[k] === 'string' && patch.config[k] !== cur.config[k]) {
         next.config[k] = patch.config[k].slice(0, 500);
         mudados.push(k);
+      }
+    }
+    if (patch.config.whatsappNumeros !== undefined) {
+      const lista = validarNumeros(patch.config.whatsappNumeros);
+      if (JSON.stringify(lista) !== JSON.stringify(cur.config.whatsappNumeros)) {
+        next.config.whatsappNumeros = lista;
+        next.config.whatsappNumber = lista.find((n) => n.ativo && n.peso > 0).numero;
+        mudados.push('whatsappNumeros');
       }
     }
     if (mudados.includes('paginaPrincipal')) {

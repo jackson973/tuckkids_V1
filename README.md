@@ -98,7 +98,7 @@ design/             Fontes .dc.html originais do Claude Design (referência)
 
 Em `js/main.js` (`TK_CONFIG`):
 
-- `whatsappNumber` — **TODO: número oficial ainda é placeholder** (`5547999999999`). Todos os botões/links de WhatsApp usam esse valor.
+- `whatsappNumeros` — **rodízio de WhatsApp** (⚙️ → 📞 Números de WhatsApp): lista de números com nome, peso e ativo/inativo. Cada visita sorteia um número ativo na proporção dos pesos; ao clicar num botão de WhatsApp o visitante fica fixo naquele número por 30 dias (`localStorage` `tk_wa`). Número removido/desativado → novo sorteio. O clique envia `atendente` e `whatsapp` ao GA4/Pixel/TikTok/GTM. `whatsappNumber` continua existindo como o 1º número ativo (compatibilidade). **TODO: número oficial ainda é placeholder** (`5547999999999`).
 - `pedidoMinimo` — valor exibido em todos os pontos das páginas (`R$ 2.000`).
 - As intenções dos botões de WhatsApp (`WA_MESSAGES`) podem ser sobrescritas via `window.TK_MSG_OVERRIDES`; as aberturas por origem vêm do painel.
 

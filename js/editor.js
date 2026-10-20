@@ -491,12 +491,14 @@
     ['h3', 'Site'],
     ['help', 'Configurações gerais. Tudo que você salvar aqui vale para todas as páginas, após a próxima publicação. A página principal e o teste A/B ficam em 📄 Páginas.'],
     ['select', 'config.modoLancamento', 'Modo lançamento — "on" mostra só a tela "Em breve" com senha; "off" abre o site ao público', ['on', 'off']],
-    ['input', 'config.whatsappNumber', 'WhatsApp (55 + DDD + número)', 'ex.: 5547999999999'],
     ['input', 'config.pedidoMinimo', 'Pedido mínimo (frete grátis)', 'ex.: R$ 2.000'],
     ['input', 'config.instagram', 'Link do Instagram', 'https://instagram.com/...'],
     ['select', 'config.instagramAtivo', 'Instagram no site — "on" mostra o ícone no rodapé; "off" esconde', ['on', 'off']],
     ['input', 'config.facebook', 'Link do Facebook', 'https://facebook.com/...'],
     ['select', 'config.facebookAtivo', 'Facebook no site — "on" mostra o ícone no rodapé; "off" esconde', ['on', 'off']],
+    ['h3', '📞 Números de WhatsApp (rodízio)'],
+    ['help', 'Cada visita sorteia um dos números ativos na proporção dos pesos (ex.: 60 e 40 → 60% das visitas vão para o primeiro). Quem clica no WhatsApp fica fixo naquele número por 30 dias, para não cair em outro atendente na volta. Peso 0 ou "inativo" tira o número do sorteio; quem já estava fixo nele é sorteado de novo. Cada clique informa o atendente ao Google Analytics e ao Pixel.'],
+    ['wa-numeros'],
     ['h3', '💬 Mensagem do WhatsApp por origem'],
     ['help', 'O site descobre de onde o visitante veio (pelo utm_source do anúncio, pelo id de clique ou pelo site de origem) e começa a mensagem do WhatsApp com a frase da origem, seguida do que o botão pede (ex.: "Quero receber o catálogo Tuck Kids."). A primeira origem fica guardada por 30 dias. Nos anúncios do Meta use utm_source={{site_source_name}} para separar Facebook de Instagram.'],
     ['input', 'origem.google', 'Veio do Google (anúncio ou busca)', 'ex.: Olá, vim do site e gostaria de mais informações.'],
@@ -532,6 +534,11 @@
   panel.innerHTML = CFG_FIELDS.map(([kind, a, b, c]) => {
     if (kind === 'h3') return `<h3>${a}</h3>`;
     if (kind === 'help') return `<p class="tk-help">${a}</p>`;
+    if (kind === 'wa-numeros') {
+      return `<div id="tk-wa-lista"></div>
+        <button type="button" id="tk-wa-add" class="tk-btn" style="margin-top:8px">➕ Adicionar número</button>
+        <small id="tk-wa-soma"></small>`;
+    }
     if (kind === 'video-upload') {
       const uid = a.replace('.', '-');
       return `<div style="display:flex;align-items:center;gap:10px;margin:10px 0 4px">
@@ -592,6 +599,64 @@
     }
   });
 
+  // ---------- rodízio de números de WhatsApp ----------
+  let waNumeros = [];
+  const waLista = panel.querySelector('#tk-wa-lista');
+
+  function renderWa() {
+    const total = waNumeros.reduce((t, n) => t + (n.ativo && n.peso > 0 ? n.peso : 0), 0);
+    waLista.innerHTML = waNumeros.map((n, i) => {
+      const pct = total && n.ativo && n.peso > 0 ? Math.round((n.peso / total) * 1000) / 10 + '%' : 'fora do sorteio';
+      return `<div style="border:1.5px solid rgba(16,27,77,.12);border-radius:12px;padding:10px 12px;margin-bottom:8px">
+        <label>Nome / atendente</label>
+        <input data-wa-i="${i}" data-wa-campo="nome" value="${escHtml(n.nome || '')}" placeholder="ex.: Maria — vendas">
+        <label>WhatsApp (55 + DDD + número)</label>
+        <input data-wa-i="${i}" data-wa-campo="numero" value="${escHtml(n.numero || '')}" placeholder="ex.: 5547999999999" inputmode="numeric">
+        <label>Peso</label>
+        <input data-wa-i="${i}" data-wa-campo="peso" type="number" min="0" max="1000" value="${Number(n.peso) || 0}">
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;font-size:13.5px;font-weight:600;color:#101B4D">
+          <label style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer">
+            <input type="checkbox" data-wa-i="${i}" data-wa-campo="ativo" ${n.ativo !== false ? 'checked' : ''} style="width:auto;accent-color:#4F9993"> Ativo</label>
+          <span style="flex:1;color:rgba(16,27,77,.55)">${pct}</span>
+          <button type="button" class="tk-btn-danger" data-wa-del="${i}" ${waNumeros.length < 2 ? 'disabled' : ''}>🗑 Remover</button>
+        </div></div>`;
+    }).join('');
+    panel.querySelector('#tk-wa-soma').textContent = total ? `Pesos são relativos: o % ao lado de cada número é a fatia real de visitas.` : 'Nenhum número ativo com peso maior que 0.';
+  }
+
+  function waMudou() {
+    pending.config.whatsappNumeros = waNumeros.map((n) => ({ ...n }));
+    refreshSave();
+  }
+
+  waLista.addEventListener('input', (e) => {
+    const f = e.target;
+    if (!f.dataset || f.dataset.waI === undefined) return;
+    const n = waNumeros[Number(f.dataset.waI)];
+    const campo = f.dataset.waCampo;
+    n[campo] = campo === 'ativo' ? f.checked : campo === 'peso' ? Number(f.value) || 0 : f.value;
+    waMudou();
+    if (campo === 'peso' || campo === 'ativo') {
+      // só os percentuais mudam: re-renderiza sem perder o foco do campo
+      const pos = f.selectionStart;
+      renderWa();
+      const de = waLista.querySelector(`[data-wa-i="${f.dataset.waI}"][data-wa-campo="${campo}"]`);
+      if (de && campo === 'peso') { de.focus(); try { de.setSelectionRange(pos, pos); } catch (_) {} }
+    }
+  });
+  waLista.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-wa-del]');
+    if (!b) return;
+    waNumeros.splice(Number(b.dataset.waDel), 1);
+    renderWa();
+    waMudou();
+  });
+  panel.querySelector('#tk-wa-add').addEventListener('click', () => {
+    waNumeros.push({ nome: '', numero: '', peso: 50, ativo: true });
+    renderWa();
+    waMudou();
+  });
+
   let cfgLoaded = false;
   async function carregarCfg() {
     if (cfgLoaded) return;
@@ -601,6 +666,9 @@
       const [group, key] = f.dataset.path.split('.');
       f.value = (content[group] && content[group][key]) || '';
     });
+    waNumeros = ((content.config && content.config.whatsappNumeros) || []).map((n) => ({ ...n }));
+    if (!waNumeros.length) waNumeros.push({ nome: 'Principal', numero: '', peso: 100, ativo: true });
+    renderWa();
     cfgLoaded = true;
   }
 

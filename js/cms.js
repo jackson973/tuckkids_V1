@@ -73,7 +73,8 @@
 
   // Conversão principal do site: clique em qualquer botão de WhatsApp.
   // Leva junto a origem do visitante (Google/Facebook/Instagram/TikTok/direto),
-  // a página vista (teste A/B) e os utm do anúncio — rastreio invisível.
+  // a página vista (teste A/B), o atendente do rodízio de WhatsApp e os utm
+  // do anúncio — rastreio invisível.
   function bindConversionEvents() {
     document.addEventListener('click', (e) => {
       const a = e.target.closest && e.target.closest('a[data-wa]');
@@ -83,6 +84,7 @@
         const o = window.__TK_origem || {};
         const extra = {
           origem: o.origem || 'direto', pagina: TK.pagina || '',
+          atendente: (window.__TK_wa || {}).nome || '', whatsapp: (window.__TK_wa || {}).numero || '',
           utm_source: o.utm_source || '', utm_medium: o.utm_medium || '', utm_campaign: o.utm_campaign || '',
         };
         if (typeof gtag === 'function') {

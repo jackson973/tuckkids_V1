@@ -96,9 +96,55 @@ function waMensagem(messageKey) {
   return (abertura ? abertura + ' ' : '') + intencao;
 }
 
+// ============================================================
+// Rodízio de WhatsApp: cada visita sorteia um número da lista do
+// painel na proporção dos pesos (60/40 → ~60% das visitas no 1º).
+// Quem clica fica fixo naquele número por 30 dias (localStorage),
+// para não cair em outro atendente na volta. Se o número salvo for
+// removido ou desativado no painel, a pessoa entra em novo sorteio.
+// ============================================================
+const TK_WA_KEY = 'tk_wa';
+const TK_WA_DIAS = 30;
+
+function waNumerosAtivos() {
+  const lista = Array.isArray(TK_CONFIG.whatsappNumeros) ? TK_CONFIG.whatsappNumeros : [];
+  const ativos = lista
+    .map((n) => ({ nome: n.nome || '', numero: String(n.numero || '').replace(/\D/g, ''), peso: Number(n.peso) || 0, ativo: n.ativo !== false }))
+    .filter((n) => n.ativo && n.peso > 0 && n.numero);
+  if (ativos.length) return ativos;
+  return [{ nome: '', numero: String(TK_CONFIG.whatsappNumber).replace(/\D/g, ''), peso: 1 }];
+}
+
+function escolherWhatsApp() {
+  const ativos = waNumerosAtivos();
+  let salvo = null;
+  try { salvo = JSON.parse(localStorage.getItem(TK_WA_KEY) || 'null'); } catch (_) {}
+  if (salvo && salvo.ts && Date.now() - salvo.ts < TK_WA_DIAS * 86400000) {
+    const fixo = ativos.find((n) => n.numero === salvo.numero);
+    if (fixo) return { ...fixo, fixo: true };
+  }
+  const total = ativos.reduce((s, n) => s + n.peso, 0);
+  let r = Math.random() * total;
+  for (const n of ativos) {
+    r -= n.peso;
+    if (r < 0) return n;
+  }
+  return ativos[ativos.length - 1];
+}
+window.__TK_wa = escolherWhatsApp();
+
+// Chamado no clique de qualquer botão de WhatsApp: fixa o número sorteado
+function waFixar() {
+  try { localStorage.setItem(TK_WA_KEY, JSON.stringify({ numero: window.__TK_wa.numero, ts: Date.now() })); } catch (_) {}
+}
+window.__TK_waFixar = waFixar;
+document.addEventListener('click', (e) => {
+  const a = e.target.closest && e.target.closest('a[href^="https://wa.me/"]');
+  if (a) waFixar();
+}, true);
+
 function waLink(messageKey) {
-  const num = String(TK_CONFIG.whatsappNumber).replace(/\D/g, '');
-  return 'https://wa.me/' + num + '?text=' + encodeURIComponent(waMensagem(messageKey));
+  return 'https://wa.me/' + window.__TK_wa.numero + '?text=' + encodeURIComponent(waMensagem(messageKey));
 }
 window.__TK_waLink = waLink;
 
@@ -128,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Botão de play do vídeo (VSL) — abre conversa no WhatsApp
   const vslPlay = document.getElementById('vsl-play');
   if (vslPlay) {
-    vslPlay.addEventListener('click', () => window.open(waLink('conhecer'), '_blank'));
+    vslPlay.addEventListener('click', () => { waFixar(); window.open(waLink('conhecer'), '_blank'); });
   }
 
   // Menu mobile
